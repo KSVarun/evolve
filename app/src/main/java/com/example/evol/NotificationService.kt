@@ -26,21 +26,26 @@ class NotificationService : Service() {
     }
 
 
+
+
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = createNotification("Service Running", "Processing timer...")
-        startForeground(NOTIFICATION_ID, notification, if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-        } else {
-            0
-        },)  // Starts foreground service correctly
-
-        // Perform timer logic or other background work here
-
+        val foregroundServiceType = getForegroundServiceTypeName()
+        startForeground(NOTIFICATION_ID, notification, foregroundServiceType)
         return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private fun getForegroundServiceTypeName(): Int {
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+            return ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        }
+        return 0
+    }
+
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

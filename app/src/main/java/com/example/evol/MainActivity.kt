@@ -3,14 +3,12 @@ package com.example.evol
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -25,26 +23,112 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import com.example.evol.ui.theme.EvolTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.app.ServiceCompat.startForeground
 import androidx.core.content.ContextCompat
-import androidx.core.content.ContextCompat.getSystemService
-import androidx.core.content.ContextCompat.startActivity
 import kotlinx.coroutines.*
 
+
+import androidx.compose.material3.*
+import androidx.navigation.compose.*
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavController
+
+// Data class for tabs
+sealed class TabItem(val title: String, val route: String, val icon: ImageVector) {
+    object Tracker : TabItem("Tracker", "tracker", Icons.Filled.Home)
+    object Timer : TabItem("Timer", "timer", Icons.Filled.Build)
+
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun TabNavigation(context: Context) {
+    val tabs = listOf(TabItem.Tracker, TabItem.Timer)
+    val navController = rememberNavController()
+    var selectedTabIndex by remember { mutableStateOf(0) }
+
+    Scaffold(
+//        topBar = {
+//            TabRow(
+//                selectedTabIndex = selectedTabIndex,
+//                // Tab selection logic
+//                tabs = {
+//                    tabs.forEachIndexed { index, tab ->
+//                        Tab(
+//                            selected = selectedTabIndex == index,
+//                            onClick = {
+//                                selectedTabIndex = index
+//                                navController.navigate(tab.route) {
+//                                    // Avoid multiple instances of the same destination
+//                                    popUpTo(navController.graph.startDestinationId) { saveState = true }
+//                                    launchSingleTop = true
+//                                    restoreState = true
+//                                }
+//                            },
+//                            text = { Text(tab.title) }
+//                        )
+//                    }
+//                }
+//            )
+//        }
+        bottomBar = {
+            BottomNavigationBar(navController)
+        }
+    ) {innerPadding->
+        // Content area
+        NavHost(navController, startDestination = TabItem.Tracker.route, modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            composable(TabItem.Tracker.route) { HomeScreen() }
+            composable(TabItem.Timer.route) { Timer(context) }
+        }
+    }
+}
+
+
+@Composable
+fun BottomNavigationBar(navController: NavController) {
+    val items = listOf(
+        TabItem.Tracker,
+        TabItem.Timer
+    )
+
+    NavigationBar(
+        containerColor = Color.White,
+        contentColor = Color.Black
+    ) {
+        val currentRoute = navController.currentDestination?.route
+        items.forEach { item ->
+            NavigationBarItem(
+                icon = { Icon(item.icon, contentDescription = item.title) },
+                label = { Text(item.title) },
+                selected = currentRoute == item.route,
+                onClick = {
+                    navController.navigate(item.route) {
+                        // Avoid multiple copies of the same destination
+                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            )
+        }
+    }
+}
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
@@ -71,7 +155,8 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
 //                    Greeting("Android")
-                    Timer(this)
+//                    Timer(this)
+                    TabNavigation(this)
                 }
             }
         }
@@ -80,20 +165,27 @@ class MainActivity : ComponentActivity() {
 
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hola $name!",
-        modifier = modifier
-    )
-}
+//@Composable
+//fun Greeting(name: String, modifier: Modifier = Modifier) {
+//    Text(
+//        text = "Hola $name!",
+//        modifier = modifier
+//    )
+//}
 
-@Preview(showBackground = true)
+//@Preview(showBackground = true)
+//@Composable
+//fun GreetingPreview() {
+//    EvolTheme {
+//        Greeting("Android!")
+//    }
+//}
+
 @Composable
-fun GreetingPreview() {
-    EvolTheme {
-        Greeting("Android!")
-    }
+fun HomeScreen(){
+    Text(
+        text = "Home"
+    )
 }
 
 
