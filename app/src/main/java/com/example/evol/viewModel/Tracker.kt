@@ -2,15 +2,24 @@ package com.example.evol.viewModel
 
 import com.example.evol.database.AppDatabase
 import android.app.Application
+import android.os.Build
+import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.room.Room
-import com.example.evol.models.Tracker
+import com.example.evol.entity.Tracker
+import com.example.evol.service.ApiClient
+import com.example.evol.utils.getCurrentDate
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.IOException
 
 
+@RequiresApi(Build.VERSION_CODES.O)
 class TrackerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = Room.databaseBuilder(
@@ -20,24 +29,40 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     ).fallbackToDestructiveMigration().build()
 
     private val dao = db.trackerDao()
-
     val trackerData = mutableStateListOf<Tracker>()
 
     init {
-        loadData()
+        loadTrackersFromApi()
     }
 
-    private fun loadData() {
-        viewModelScope.launch {
-            val data = dao.getAll()
-            println(data)
-//            trackerData.clear()
-//            trackerData.addAll(data)
-            trackerData.addAll(listOf(
-            Tracker(item = "Meditation", value = 0, id = 1),
-                Tracker(item = "FC", value = 0, id = 2),
-                Tracker(item = "Carrot", value = 0, id = 3)
-        ))
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun loadTrackersFromApi() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val apiResponse = ApiClient.service.fetchTrackers()
+                val currentDate = getCurrentDate()
+                val currentDatesData = apiResponse.track[currentDate]
+                if(currentDatesData != null) {
+                    trackerData.clear()
+                    dao.deleteAll()
+                    val convertedData = convertMapToList(currentDatesData)
+                    dao.insertAll(convertedData)
+                    trackerData.addAll(convertedData)
+                }
+            } catch (e: IOException) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), "Network error. Please try again.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                println("error----")
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun convertMapToList(map: Map<String, String>): List<Tracker> {
+        return map.map { entry ->
+            Tracker(item = entry.key, value = entry.value.toInt())
         }
     }
 

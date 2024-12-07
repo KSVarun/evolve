@@ -14,16 +14,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModelProvider
 import com.example.evol.ui.theme.EvolTheme
 
 import com.example.evol.ui.components.BottomBarNavigation
 import com.example.evol.utils.checkBatteryLifePermission
+import com.example.evol.viewModel.TrackerViewModel
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     @SuppressLint("BatteryLife")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+//        val trackerViewModel = ViewModelProvider(this)[TrackerViewModel::class.java]
+//        trackerViewModel.loadTrackersFromApi()
         if(!checkBatteryLifePermission(this)){
             val intent = Intent()
             intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);

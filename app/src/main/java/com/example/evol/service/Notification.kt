@@ -1,4 +1,4 @@
-package com.example.evol
+package com.example.evol.service
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -12,7 +12,7 @@ import android.os.IBinder
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 
-class NotificationService : Service() {
+class Notification : Service() {
 
     companion object {
         const val CHANNEL_ID = "timer_notification_foreground"

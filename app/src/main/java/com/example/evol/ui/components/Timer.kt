@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import android.os.PowerManager
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -30,7 +29,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.example.evol.NotificationService
+import com.example.evol.service.Notification
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -96,7 +95,7 @@ fun Timer(context: Context) {
 
         Button(onClick = {
 
-            val serviceIntent = Intent(context, NotificationService::class.java)
+            val serviceIntent = Intent(context, Notification::class.java)
             context.startForegroundService(serviceIntent)
 
             notificationScope.launch {
