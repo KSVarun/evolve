@@ -1,5 +1,8 @@
 package com.example.evol.ui.components
 
+import android.app.Application
+import com.example.evol.database.AppDatabase
+import android.content.Context
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -17,7 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.room.Room.databaseBuilder
+import com.example.evol.viewModel.TrackerViewModel
+import com.example.evol.viewModelFactory.TrackerViewModelFactory
 
 
 data class SelectedDatesData(
@@ -26,17 +34,20 @@ data class SelectedDatesData(
 )
 
 @Composable
-fun Tracker(){
-    val selectedDatesData = remember {
-        mutableStateListOf(
-            SelectedDatesData(item = "Meditation", value = 0),
-            SelectedDatesData(item = "FC", value = 0),
-            SelectedDatesData(item = "Carrot", value = 0)
-        )
-    }
+fun Tracker(context: Context){
+    val trackerViewModal: TrackerViewModel = viewModel(factory = TrackerViewModelFactory(context.applicationContext as Application))
+
+
+//    val selectedDatesData = remember {
+//        listOf(
+//            SelectedDatesData(item = "Meditation", value = 0),
+//            SelectedDatesData(item = "FC", value = 0),
+//            SelectedDatesData(item = "Carrot", value = 0)
+//        )
+//    }
 
     Column(modifier = Modifier.padding(16.dp)) {
-        selectedDatesData.forEachIndexed { index,data ->
+        trackerViewModal.trackerData.forEachIndexed { index,data ->
             Row (  modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
@@ -50,13 +61,15 @@ fun Tracker(){
                         .border(1.dp, Color.Black, CircleShape)
                         .wrapContentSize(Alignment.Center)
                         .clickable {
-                            selectedDatesData[index] = data.copy(value = data.value + 1)
+                            trackerViewModal.incrementValue(index)
                         }
                 )
-                Text(
-                    text = data.item,
-                    modifier = Modifier.weight(1f)
-                )
+                data.item?.let {
+                    Text(
+                        text = it,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 Text(
                     text = data.value.toString()
                 )
@@ -68,8 +81,8 @@ fun Tracker(){
                         .clip(CircleShape)
                         .border(1.dp, Color.Black, CircleShape)
                         .wrapContentSize(Alignment.Center)
-                        .clickable(enabled = data.value > 0) {
-                                selectedDatesData[index] = data.copy(value = data.value - 1)
+                        .clickable(enabled = data.value!! > 0) {
+                                trackerViewModal.decrementValue(index)
                         }
                 )
             }

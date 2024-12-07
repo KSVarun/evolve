@@ -42,7 +42,7 @@ fun BottomBarNavigation(context: Context) {
         }
     ) {innerPadding->
         NavHost(navController, startDestination = TabItem.Tracker.route, modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            composable(TabItem.Tracker.route) { Tracker() }
+            composable(TabItem.Tracker.route) { Tracker(context) }
             composable(TabItem.Timer.route) { Timer(context) }
         }
     }
