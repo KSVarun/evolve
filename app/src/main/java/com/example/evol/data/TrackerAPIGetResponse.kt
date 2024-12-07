@@ -1,9 +1,13 @@
 package com.example.evol.data
 
 
-data class TrackerAPIResponse(
+data class TrackerAPIGetResponse(
     val track: Map<String, Map<String, String>>,
     val configurations: Map<String, Map<String, String>>
+)
+
+data class TrackerAPIUpdateResponse(
+    val message: String
 )
 
 enum class ConfigKeys(val key: String) {

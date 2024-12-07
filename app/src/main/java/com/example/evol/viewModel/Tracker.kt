@@ -10,12 +10,15 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.platform.LocalContext
 import androidx.room.Room
 import com.example.evol.entity.Tracker
 import com.example.evol.service.ApiClient
+import com.example.evol.service.UpdateTrackerRequestBody
 import com.example.evol.utils.getCurrentDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.internal.toImmutableList
 import java.io.IOException
 
 
@@ -39,13 +42,20 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     fun loadTrackersFromApi() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val apiResponse = ApiClient.service.fetchTrackers()
+                val apiResponse = ApiClient.getTrackerApiService.fetchTrackers()
                 val currentDate = getCurrentDate()
                 val currentDatesData = apiResponse.track[currentDate]
                 if(currentDatesData != null) {
                     trackerData.clear()
                     dao.deleteAll()
-                    val convertedData = convertMapToList(currentDatesData)
+                    var convertedData = convertMapToList(currentDatesData)
+                    convertedData = convertedData.toMutableList()
+                    val trackerItems = apiResponse.configurations.keys
+                    trackerItems.forEach{item->
+                            if(currentDatesData[item]==null){
+                                convertedData.add(Tracker(item=item, value = 0))
+                            }
+                    }
                     dao.insertAll(convertedData)
                     trackerData.addAll(convertedData)
                 }
@@ -60,6 +70,25 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun updateTrackerDataAPI() {
+        viewModelScope.launch {
+            try {
+                val requestData = mutableListOf(getCurrentDate())
+                trackerData.forEach { data ->
+                    requestData.add(data.value.toString())
+                }
+                val response = ApiClient.updateTrackerApiService.updateTrackers(
+                    UpdateTrackerRequestBody(values = requestData.toImmutableList()))
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), response.message, Toast.LENGTH_SHORT).show()
+                }
+
+            } catch (e: java.lang.Exception) {
+                println(e)
+            }
+
+        }
+    }
     private fun convertMapToList(map: Map<String, String>): List<Tracker> {
         return map.map { entry ->
             Tracker(item = entry.key, value = entry.value.toInt())
