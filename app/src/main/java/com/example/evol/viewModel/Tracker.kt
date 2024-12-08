@@ -43,30 +43,48 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val apiResponse = ApiClient.getTrackerApiService.fetchTrackers()
-                val currentDate = getCurrentDate()
-                val currentDatesData = apiResponse.track[currentDate]
-                if(currentDatesData != null) {
+                val currentDatesData = apiResponse.track[getCurrentDate()]
+                if (currentDatesData != null) {
                     trackerData.clear()
+                    //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                     dao.deleteAll()
-                    var convertedData = convertMapToList(currentDatesData)
-                    convertedData = convertedData.toMutableList()
-                    val trackerItems = apiResponse.configurations.keys
-                    trackerItems.forEach{item->
-                            if(currentDatesData[item]==null){
-                                convertedData.add(Tracker(item=item, value = 0))
+                    val convertedData = convertMapToList(currentDatesData).toMutableList()
+                    if(convertedData.size != apiResponse.configurations.keys.size) {
+                        apiResponse.configurations.keys.forEach { item ->
+                            if (currentDatesData[item] == null) {
+                                convertedData.add(Tracker(id = null, item = item, value = 0))
                             }
+                        }
                     }
                     dao.insertAll(convertedData)
                     trackerData.addAll(convertedData)
                 }
             } catch (e: IOException) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication(), "Network error. Please try again.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        getApplication(),
+                        "Network error. Please try again.",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             } catch (e: Exception) {
                 println("error----")
                 e.printStackTrace()
             }
+        }
+    }
+
+    private fun convertMapToList(map: Map<String, String>): List<Tracker> {
+        return map.map { entry ->
+            Tracker(
+                id = null,
+                item = entry.key,
+                value = if (entry.value.isNotEmpty()) {
+                    entry.value.toInt()
+                } else {
+                    0
+                }
+            )
         }
     }
 
@@ -78,7 +96,8 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                     requestData.add(data.value.toString())
                 }
                 val response = ApiClient.updateTrackerApiService.updateTrackers(
-                    UpdateTrackerRequestBody(values = requestData.toImmutableList()))
+                    UpdateTrackerRequestBody(values = requestData.toImmutableList())
+                )
                 withContext(Dispatchers.Main) {
                     Toast.makeText(getApplication(), response.message, Toast.LENGTH_SHORT).show()
                 }
@@ -89,11 +108,8 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
         }
     }
-    private fun convertMapToList(map: Map<String, String>): List<Tracker> {
-        return map.map { entry ->
-            Tracker(item = entry.key, value = entry.value.toInt())
-        }
-    }
+
+
 
     fun incrementValue(index: Int) {
         val data = trackerData[index]

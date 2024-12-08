@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evol.viewModel.TrackerViewModel
@@ -44,7 +45,7 @@ fun Tracker(context: Context) {
     val scrollState = rememberScrollState()
     Box(
         modifier = Modifier
-            .fillMaxSize() // Make the Box fill the entire screen
+            .fillMaxSize()
     ) {
         Column(
             modifier = Modifier
@@ -61,18 +62,19 @@ fun Tracker(context: Context) {
                         .padding(bottom = if (isLastItem) 70.dp else 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "-",
+                    Button(
+                        onClick = {
+                            trackerViewModal.decrementValue(index)
+                        },
+                        enabled = data.value!! > 0,
                         modifier = Modifier
                             .padding(end = 8.dp)
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .border(1.dp, Color.Black, CircleShape)
-                            .wrapContentSize(Alignment.Center)
-                            .clickable(enabled = data.value!! > 0) {
-                                trackerViewModal.decrementValue(index)
-                            }
-                    )
+                            .size(50.dp)
+                            .wrapContentSize(Alignment.Center),
+                        contentPadding = PaddingValues(0.dp)
+                    ){
+                        Text(text = "-", fontSize = 25.sp, color = Color.White)
+                    }
                     data.item?.let {
                         Text(
                             text = it,
@@ -83,18 +85,18 @@ fun Tracker(context: Context) {
                         text = data.value.toString()
                     )
 
-                    Text(
-                        text = "+",
+                    Button(
+                        onClick = {
+                            trackerViewModal.incrementValue(index)
+                        },
                         modifier = Modifier
                             .padding(start = 8.dp)
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .border(1.dp, Color.Black, CircleShape)
-                            .wrapContentSize(Alignment.Center)
-                            .clickable {
-                                trackerViewModal.incrementValue(index)
-                            }
-                    )
+                            .size(50.dp)
+                            .wrapContentSize(Alignment.Center),
+                        contentPadding = PaddingValues(0.dp)
+                    ){
+                        Text(text = "+", fontSize = 25.sp, color = Color.White)
+                    }
                 }
             }
         }
@@ -102,7 +104,6 @@ fun Tracker(context: Context) {
         Button(
             onClick = {
                  trackerViewModal.updateTrackerDataAPI()
-
             },
             modifier = Modifier
                 .size(80.dp)
