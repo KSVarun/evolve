@@ -10,8 +10,9 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.mutableStateOf
 import androidx.room.Room
+import com.example.evol.entity.ThresholdIncrement
 import com.example.evol.entity.Tracker
 import com.example.evol.service.ApiClient
 import com.example.evol.service.UpdateTrackerRequestBody
@@ -33,6 +34,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
     private val dao = db.trackerDao()
     val trackerData = mutableStateListOf<Tracker>()
+    val configData = mutableStateOf<Map<String, Map<String, String>>?>(null)
 
     init {
         loadTrackersFromApi()
@@ -44,11 +46,12 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             try {
                 val apiResponse = ApiClient.getTrackerApiService.fetchTrackers()
                 val currentDatesData = apiResponse.track[getCurrentDate()]
+                configData.value=apiResponse.configurations
                 if (currentDatesData != null) {
                     trackerData.clear()
                     //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                     dao.deleteAll()
-                    val convertedData = convertMapToList(currentDatesData).toMutableList()
+                    val convertedData = convertTrackerDataMapToList(currentDatesData).toMutableList()
                     if(convertedData.size != apiResponse.configurations.keys.size) {
                         apiResponse.configurations.keys.forEach { item ->
                             if (currentDatesData[item] == null) {
@@ -74,7 +77,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private fun convertMapToList(map: Map<String, String>): List<Tracker> {
+    private fun convertTrackerDataMapToList(map: Map<String, String>): List<Tracker> {
         return map.map { entry ->
             Tracker(
                 id = null,
@@ -111,9 +114,10 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
 
 
-    fun incrementValue(index: Int) {
+    fun incrementValue(index: Int, item:String) {
+        val incrementValue = configData.value?.get(item)?.get(ThresholdIncrement)?.toInt() ?: 1
         val data = trackerData[index]
-        val updatedData = data.copy(value = data.value?.plus(1))
+        val updatedData = data.copy(value = data.value?.plus(incrementValue))
         viewModelScope.launch {
             dao.update(updatedData)
             trackerData[index] = updatedData

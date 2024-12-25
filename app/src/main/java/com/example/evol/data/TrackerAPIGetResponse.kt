@@ -9,13 +9,3 @@ data class TrackerAPIGetResponse(
 data class TrackerAPIUpdateResponse(
     val message: String
 )
-
-enum class ConfigKeys(val key: String) {
-    MAX_THRESHOLD_VALUE("max-threshold-value"),
-    THRESHOLD_INCREMENT("threshold-increment");
-
-    companion object {
-        private val map = entries.associateBy(ConfigKeys::key)
-        fun fromString(key: String): ConfigKeys? = map[key]
-    }
-}

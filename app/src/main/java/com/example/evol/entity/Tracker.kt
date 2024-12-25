@@ -9,3 +9,6 @@ data class Tracker (
     val item: String?,
     val value: Int?
 )
+
+val MaxThresholdValue = "max-threshold-value"
+val ThresholdIncrement = "threshold-increment"
