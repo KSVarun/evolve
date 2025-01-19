@@ -11,3 +11,11 @@ fun getCurrentDate(): String {
     val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
     return currentDate.format(formatter)
 }
+
+@RequiresApi(Build.VERSION_CODES.O)
+fun getPreviousNDate(previous:Long):String{
+    val currentDate = LocalDate.now()
+    currentDate.minusDays(previous)
+    val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    return currentDate.format(formatter)
+}

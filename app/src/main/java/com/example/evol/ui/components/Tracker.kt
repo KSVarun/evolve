@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,7 +23,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -33,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.evol.entity.Consistency
 import com.example.evol.viewModel.TrackerViewModel
 import com.example.evol.viewModelFactory.TrackerViewModelFactory
 
@@ -51,6 +56,29 @@ fun Tracker(context: Context) {
         return Color(red, green, blue)
     }
 
+    fun renderConsistentData(data: Consistency?): MutableList<String> {
+        val returnData = mutableListOf<String>()
+        if (data == null) {
+            returnData.add(0, "0")
+            returnData.add(1, "0")
+            return returnData
+        }
+        if (data.consistentSince == 1 && data.brokenSince == 1) {
+            returnData.add(0, "1")
+            returnData.add(1, "1")
+        } else if (data.consistentSince > 1 && data.brokenSince == 1) {
+            returnData.add(0, "0")
+            returnData.add(1, data.consistentSince.toString())
+        } else if (data.brokenSince > 1 && data.consistentSince == 1) {
+            returnData.add(0, data.brokenSince.toString())
+            returnData.add(1, "0")
+        }else if(data.brokenSince==0 || data.consistentSince==0){
+            returnData.add(0, data.brokenSince.toString())
+            returnData.add(1, data.consistentSince.toString())
+        }
+        return returnData
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -63,7 +91,8 @@ fun Tracker(context: Context) {
         ) {
             trackerViewModal.trackerData.forEachIndexed { index, data ->
                 val isLastItem = index == trackerViewModal.trackerData.lastIndex
-
+                val consistentData =
+                    renderConsistentData(trackerViewModal.consistentData[data.item])
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -76,7 +105,7 @@ fun Tracker(context: Context) {
                         onClick = {
                             trackerViewModal.decrementValue(index)
                         },
-                        enabled = data.value!! > 0,
+                        enabled = data.value > 0,
                         modifier = Modifier
                             .padding(start = 10.dp)
                             .size(50.dp)
@@ -88,6 +117,23 @@ fun Tracker(context: Context) {
                     ) {
                         Text(text = "-", fontSize = 25.sp, color = Color.White)
                     }
+
+                    Box(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .padding(start=10.dp),
+                        contentAlignment = Alignment.Center
+
+                    ) {
+                        Text(
+                            text = consistentData[0], color = if (consistentData[0].toInt() > 0) {
+                                Color.Red
+                            } else {
+                                Color.Transparent
+                            }
+                        )
+                    }
+
                     Column(
                         modifier = Modifier
                             .padding(8.dp)
@@ -103,6 +149,18 @@ fun Tracker(context: Context) {
                             text = data.value.toString()
                         )
                     }
+                    Box(modifier = Modifier
+                        .size(50.dp).padding(end=10.dp),
+                            contentAlignment = Alignment.Center) {
+                        Text(
+                            text = consistentData[1], color = if (consistentData[1].toInt() > 0) {
+                                Color.Green
+                            } else {
+                                Color.Transparent
+                            }
+                        )
+                    }
+
                     Button(
                         onClick = {
                             trackerViewModal.incrementValue(index, data.item ?: "")
@@ -115,7 +173,8 @@ fun Tracker(context: Context) {
                         colors = ButtonDefaults.buttonColors(
                             containerColor = hashCodeToColor("#4999e9".toColorInt())
                         ),
-                    ) {
+
+                        ) {
                         Text(text = "+", fontSize = 25.sp, color = Color.White)
                     }
                 }
@@ -124,7 +183,9 @@ fun Tracker(context: Context) {
 
         Button(
             onClick = {
-                trackerViewModal.updateTrackerDataAPI()
+                if (!trackerViewModal.loading.value) {
+                    trackerViewModal.updateTrackerDataAPI()
+                }
             },
             modifier = Modifier
                 .size(80.dp)
@@ -134,13 +195,28 @@ fun Tracker(context: Context) {
             colors = ButtonDefaults.buttonColors(
                 containerColor = hashCodeToColor("#1976d2".toColorInt())
             ),
-            contentPadding = PaddingValues(0.dp)
+            contentPadding = PaddingValues(0.dp),
         ) {
-            Icon(
-                imageVector = Icons.Default.Send,
-                contentDescription = "Send",
-                modifier = Modifier.size(30.dp)
-            )
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                if (trackerViewModal.loading.value) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .width(34.dp)
+                            .padding(top = 6.dp),
+                        color = MaterialTheme.colorScheme.secondary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Send,
+                        contentDescription = "Send",
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
         }
 
     }

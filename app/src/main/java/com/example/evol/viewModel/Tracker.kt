@@ -12,6 +12,8 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.room.Room
+import com.example.evol.data.TrackerAPIGetResponse
+import com.example.evol.entity.Consistency
 import com.example.evol.entity.ThresholdIncrement
 import com.example.evol.entity.Tracker
 import com.example.evol.service.ApiClient
@@ -35,6 +37,10 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     private val dao = db.trackerDao()
     val trackerData = mutableStateListOf<Tracker>()
     val configData = mutableStateOf<Map<String, Map<String, String>>?>(null)
+    val loading = mutableStateOf(false)
+    val consistentData = mutableMapOf<String, Consistency>()
+
+
 
     init {
         loadTrackersFromApi()
@@ -47,7 +53,9 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                 val apiResponse = ApiClient.getTrackerApiService.fetchTrackers()
                 val currentDatesData = apiResponse.track[getCurrentDate()]
                 configData.value=apiResponse.configurations
+
                 if (currentDatesData != null) {
+                    getConsistentData(apiResponse, true)
                     trackerData.clear()
                     //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                     dao.deleteAll()
@@ -55,9 +63,21 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                     if(convertedData.size != apiResponse.configurations.keys.size) {
                         apiResponse.configurations.keys.forEach { item ->
                             if (currentDatesData[item] == null) {
-                                convertedData.add(Tracker(id = null, item = item, value = 0))
+                                convertedData.add(Tracker(id = null, item = item, value = 0.0))
                             }
                         }
+                    }
+                    dao.insertAll(convertedData)
+                    trackerData.addAll(convertedData)
+                }
+                if(currentDatesData==null){
+                    getConsistentData(apiResponse, false)
+                    trackerData.clear()
+                    //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
+                    dao.deleteAll()
+                    val convertedData:MutableList<Tracker> = mutableListOf()
+                    apiResponse.configurations.keys.forEach { item ->
+                            convertedData.add(Tracker(id = null, item = item, value = 0.0))
                     }
                     dao.insertAll(convertedData)
                     trackerData.addAll(convertedData)
@@ -77,16 +97,83 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private fun getConsistentData(apiResponse: TrackerAPIGetResponse, currentDaysData:Boolean){
+        var data = mutableListOf<Map<String,String>>()
+
+        apiResponse.track.forEach { (t, u) ->
+            data.add(u)
+
+        }
+        data = data.reversed().toMutableList()
+        if(currentDaysData){data.removeAt(0)}
+
+
+        data.forEach { u ->
+            u.forEach label@{ (t, u) ->
+                var currentData = consistentData[t]
+                if(currentData==null){
+                    currentData = Consistency(consistentSince = 0, brokenSince = 0)
+                }
+                if(u.isNotEmpty() && u.toDouble()>0){
+                    if(currentData.brokenSince == 0) {
+                        if (currentData.consistentSince == 0) {
+                            consistentData[t] = Consistency(
+                                consistentSince = 1,
+                                brokenSince = 0
+                            )
+                        }
+                        if (currentData.consistentSince > 0) {
+                            consistentData[t] = Consistency(
+                                consistentSince = currentData.consistentSince + 1,
+                                brokenSince = 0
+                            )
+                        }
+                    }else if(currentData.brokenSince == 1 && currentData.consistentSince > 0){
+                        return@label
+                    }
+                    else{
+                        consistentData[t] = Consistency(
+                            consistentSince = 1,
+                            brokenSince = currentData.brokenSince
+                        )
+                    }
+                }else if(u.isNotEmpty() && u.toDouble()==0.0){
+                    if(currentData.consistentSince==0) {
+                        if (currentData.brokenSince == 0) {
+                            consistentData[t] = Consistency(
+                                consistentSince = 0,
+                                brokenSince = 1
+                            )
+                        } else if (currentData.brokenSince > 0) {
+                            consistentData[t] = Consistency(
+                                consistentSince = 0,
+                                brokenSince = currentData.brokenSince + 1
+                            )
+                        }
+                    }else if(currentData.consistentSince == 1 && currentData.brokenSince > 0){
+                        return@label
+                    }else{
+                        consistentData[t] = Consistency(
+                            consistentSince = currentData.consistentSince,
+                            brokenSince = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+
     private fun convertTrackerDataMapToList(map: Map<String, String>): List<Tracker> {
         return map.map { entry ->
             Tracker(
                 id = null,
                 item = entry.key,
-                value = if (entry.value.isNotEmpty()) {
-                    entry.value.toInt()
+                value = (if (entry.value.isNotEmpty()) {
+                    entry.value.toDouble()
                 } else {
-                    0
-                }
+                    0.0
+                })
             )
         }
     }
@@ -94,6 +181,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     fun updateTrackerDataAPI() {
         viewModelScope.launch {
             try {
+                loading.value=true
                 val requestData = mutableListOf(getCurrentDate())
                 trackerData.forEach { data ->
                     requestData.add(data.value.toString())
@@ -101,23 +189,23 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                 val response = ApiClient.updateTrackerApiService.updateTrackers(
                     UpdateTrackerRequestBody(values = requestData.toImmutableList())
                 )
+                loading.value=false
                 withContext(Dispatchers.Main) {
                     Toast.makeText(getApplication(), response.message, Toast.LENGTH_SHORT).show()
                 }
 
             } catch (e: java.lang.Exception) {
-                println(e)
+                loading.value=false
+                Toast.makeText(getApplication(), "Something happened with API call, please retry", Toast.LENGTH_SHORT).show()
             }
 
         }
     }
 
-
-
     fun incrementValue(index: Int, item:String) {
         val incrementValue = configData.value?.get(item)?.get(ThresholdIncrement)?.toInt() ?: 1
         val data = trackerData[index]
-        val updatedData = data.copy(value = data.value?.plus(incrementValue))
+        val updatedData = data.copy(value = data.value.plus(incrementValue))
         viewModelScope.launch {
             dao.update(updatedData)
             trackerData[index] = updatedData
@@ -126,10 +214,14 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
     fun decrementValue(index: Int) {
         val data = trackerData[index]
-        val updatedData = data.copy(value = data.value?.minus(1))
+        val updatedData = data.copy(value = data.value.minus(1))
         viewModelScope.launch {
             dao.update(updatedData)
             trackerData[index] = updatedData
         }
     }
 }
+
+
+
+
