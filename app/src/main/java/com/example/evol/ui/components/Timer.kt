@@ -2,8 +2,10 @@ package com.example.evol.ui.components
 
 import android.Manifest
 import android.app.Activity
+import android.app.DatePickerDialog
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -23,17 +25,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.example.evol.service.Notification
+import com.example.evol.service.NotificationWorker
+import com.example.evol.ui.components.TabItem.Timer.title
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.Calendar
+import java.util.concurrent.TimeUnit
 
 data class Step(
     val name: String,
@@ -127,7 +137,59 @@ fun Timer(context: Context) {
         }) {
             Text(text = "Reset")
         }
+
+        Spacer(modifier = Modifier.width(8.dp))  // Add space between buttons
+
+        Button(onClick = {
+            scheduleNotification(context,10000, "hello", "world")
+        }){
+            Text(text="Worker")
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Button(onClick = {
+
+            val calendar = Calendar.getInstance()
+            val datePicker = DatePickerDialog(context, { _, year, month, dayOfMonth ->
+                calendar.set(year, month, dayOfMonth)
+
+                // Now show Time Picker
+                TimePickerDialog(context, { _, hour, minute ->
+                    calendar.set(Calendar.HOUR_OF_DAY, hour)
+                    calendar.set(Calendar.MINUTE, minute)
+
+                    // Convert to milliseconds
+                    val millis = calendar.timeInMillis
+                    println("Selected Date-Time in Milliseconds: $millis")
+                    scheduleNotification(context,millis - System.currentTimeMillis(),"scheduled","success")
+
+                }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show()
+
+            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
+
+        }){
+            Text(text="Date time picker")
+        }
     }
+
+}
+
+fun scheduleNotification(context: Context, duration: Long, title: String, message: String){
+    val data = workDataOf(
+        "title" to title ,
+        "message" to message
+    )
+    val workRequest = OneTimeWorkRequestBuilder<NotificationWorker>()
+        .setInputData(data)
+        .setInitialDelay(duration, TimeUnit.MILLISECONDS)  // Change the delay as needed
+        .addTag("reminder_notification")
+        .build()
+
+//            WorkManager.getInstance(context).cancelAllWorkByTag("reminder_notification")
+//            WorkManager.getInstance(context).enqueue(workRequest)
+
+    WorkManager.getInstance(context).enqueue(workRequest)
 }
 
 fun createNotificationChannel(context: Context) {
