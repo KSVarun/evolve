@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -28,7 +29,7 @@ import androidx.navigation.compose.rememberNavController
 sealed class TabItem(val title: String, val route: String, val icon: ImageVector) {
     data object Tracker : TabItem("Tracker", "tracker", Icons.Filled.Home)
     data object Timer : TabItem("Timer", "timer", Icons.Filled.Build)
-
+    data object Remainder : TabItem("Remainder", "remainder", Icons.Filled.Notifications)
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -44,6 +45,7 @@ fun BottomBarNavigation(context: Context) {
         NavHost(navController, startDestination = TabItem.Tracker.route, modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             composable(TabItem.Tracker.route) { Tracker(context) }
             composable(TabItem.Timer.route) { Timer(context) }
+            composable(TabItem.Remainder.route){ Remainder(context)}
         }
     }
 }
@@ -53,7 +55,8 @@ fun BottomBarNavigation(context: Context) {
 fun BottomNavigationBar(navController: NavController) {
     val items = listOf(
         TabItem.Tracker,
-        TabItem.Timer
+        TabItem.Timer,
+        TabItem.Remainder
     )
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
