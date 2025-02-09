@@ -42,7 +42,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 data class Step(
@@ -158,15 +162,35 @@ fun Timer(context: Context) {
                 TimePickerDialog(context, { _, hour, minute ->
                     calendar.set(Calendar.HOUR_OF_DAY, hour)
                     calendar.set(Calendar.MINUTE, minute)
-
+                    calendar.set(Calendar.SECOND, 0)
+                    calendar.set(Calendar.MILLISECOND, 0)
                     // Convert to milliseconds
                     val millis = calendar.timeInMillis
                     println("Selected Date-Time in Milliseconds: $millis")
-                    scheduleNotification(context,millis - System.currentTimeMillis(),"scheduled","success")
+                    scheduleNotification(context,millis-System.currentTimeMillis(),"scheduled","success")
 
                 }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show()
 
             }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
+
+//            WorkManager.getInstance(context)
+//                .getWorkInfosByTag("timer")
+//                .addListener({
+//                    val workInfos = WorkManager.getInstance(context)
+//                        .getWorkInfosByTag("reminder_notification")
+//                        .get() // Be careful: .get() is a blocking call
+//                    if (workInfos != null) {
+//                        for (workInfo in workInfos) {
+//                            // You can inspect details such as id and state
+//                            val workId = workInfo.id
+//                            val state = workInfo.state
+//                            val tags = workInfo.tags
+//                            println(workInfo)
+//                            // Print or log the details of each work request
+//                            println("Work ID: $workId, State: $state, Tags: $tags")
+//                        }
+//                    }
+//                }, Executors.newSingleThreadExecutor())
 
         }){
             Text(text="Date time picker")
@@ -175,6 +199,7 @@ fun Timer(context: Context) {
 
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 fun scheduleNotification(context: Context, duration: Long, title: String, message: String){
     val data = workDataOf(
         "title" to title ,
