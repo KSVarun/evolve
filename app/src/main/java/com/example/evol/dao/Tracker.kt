@@ -8,7 +8,7 @@ import androidx.room.Update
 import com.example.evol.entity.Tracker
 
 @Dao
-interface TrackerDao {
+interface TrackerDAO {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(tracker: Tracker)
 

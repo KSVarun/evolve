@@ -6,7 +6,6 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.example.evol.entity.Remainder
-import com.example.evol.entity.Tracker
 
 @Dao
 interface RemainderDAO {

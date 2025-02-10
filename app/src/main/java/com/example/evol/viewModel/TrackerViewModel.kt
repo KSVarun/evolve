@@ -34,7 +34,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         "evolve_database"
     ).fallbackToDestructiveMigration().build()
 
-    private val dao = db.trackerDao()
+    private val trackerDAO = db.trackerDAO()
     val trackerData = mutableStateListOf<Tracker>()
     val configData = mutableStateOf<Map<String, Map<String, String>>?>(null)
     val loading = mutableStateOf(false)
@@ -58,7 +58,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                     getConsistentData(apiResponse, true)
                     trackerData.clear()
                     //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
-                    dao.deleteAll()
+                    trackerDAO.deleteAll()
                     val convertedData = convertTrackerDataMapToList(currentDatesData).toMutableList()
                     if(convertedData.size != apiResponse.configurations.keys.size) {
                         apiResponse.configurations.keys.forEach { item ->
@@ -67,19 +67,19 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                             }
                         }
                     }
-                    dao.insertAll(convertedData)
+                    trackerDAO.insertAll(convertedData)
                     trackerData.addAll(convertedData)
                 }
                 if(currentDatesData==null){
                     getConsistentData(apiResponse, false)
                     trackerData.clear()
                     //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
-                    dao.deleteAll()
+                    trackerDAO.deleteAll()
                     val convertedData:MutableList<Tracker> = mutableListOf()
                     apiResponse.configurations.keys.forEach { item ->
                             convertedData.add(Tracker(id = null, item = item, value = 0.0))
                     }
-                    dao.insertAll(convertedData)
+                    trackerDAO.insertAll(convertedData)
                     trackerData.addAll(convertedData)
                 }
             } catch (e: IOException) {
@@ -207,7 +207,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         val data = trackerData[index]
         val updatedData = data.copy(value = data.value.plus(incrementValue))
         viewModelScope.launch {
-            dao.update(updatedData)
+            trackerDAO.update(updatedData)
             trackerData[index] = updatedData
         }
     }
@@ -216,7 +216,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         val data = trackerData[index]
         val updatedData = data.copy(value = data.value.minus(1))
         viewModelScope.launch {
-            dao.update(updatedData)
+            trackerDAO.update(updatedData)
             trackerData[index] = updatedData
         }
     }

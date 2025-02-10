@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -38,6 +37,7 @@ import androidx.compose.ui.zIndex
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evol.entity.Consistency
+import com.example.evol.utils.hashCodeToColor
 import com.example.evol.viewModel.TrackerViewModel
 import com.example.evol.viewModelFactory.TrackerViewModelFactory
 
@@ -49,12 +49,7 @@ fun Tracker(context: Context) {
         viewModel(factory = TrackerViewModelFactory(context.applicationContext as Application))
     val scrollState = rememberScrollState()
 
-    fun hashCodeToColor(hashCode: Int): Color {
-        val red = (hashCode shr 16) and 0xFF
-        val green = (hashCode shr 8) and 0xFF
-        val blue = hashCode and 0xFF
-        return Color(red, green, blue)
-    }
+
 
     fun renderConsistentData(data: Consistency?): MutableList<String> {
         val returnData = mutableListOf<String>()
