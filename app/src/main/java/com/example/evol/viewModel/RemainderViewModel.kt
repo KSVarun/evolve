@@ -32,4 +32,10 @@ class RemainderViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun insertRemainderToDB(remainder: Remainder){
+        viewModelScope.launch {
+            remainderDAO.insert(remainder = remainder)
+        }
+    }
+
 }
