@@ -6,6 +6,7 @@ import android.app.TimePickerDialog
 import android.content.Context
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -50,11 +53,8 @@ import com.example.evol.utils.getValueInTwoDigits
 import com.example.evol.utils.hashCodeToColor
 import com.example.evol.viewModel.RemainderViewModel
 import com.example.evol.viewModelFactory.RemainderViewModelFactory
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Calendar
-
+import java.util.UUID
 
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -66,7 +66,7 @@ fun Remainder(context: Context) {
     val showDialog = remember { mutableStateOf(false) }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    val date = remember {
+    var date by remember {
         mutableStateOf(getCurrentDate())
     }
     var hourValue by remember {
@@ -76,6 +76,14 @@ fun Remainder(context: Context) {
         mutableStateOf("00")
     }
     val calendar = Calendar.getInstance()
+
+    fun resetValuesToDefault(){
+        title=""
+        description=""
+        hourValue=getDefaultHourToShow()
+        date=getCurrentDate()
+        minuteValue="00"
+    }
 
 
 
@@ -104,13 +112,13 @@ fun Remainder(context: Context) {
                     Spacer(modifier = Modifier.height(20.dp))
                     Row(modifier = Modifier
                         .fillMaxWidth()) {
-                        Text(text = date.value, modifier =  Modifier.clickable {
+                        Text(text = date, modifier =  Modifier.clickable {
                             DatePickerDialog(
                                 context,
                                 { _, year, month, dayOfMonth ->
                                     calendar.set(year, month, dayOfMonth)
                                     val currentMonth = getValueInTwoDigits(month+1)
-                                    date.value = "$dayOfMonth/$currentMonth/$year"
+                                    date = "$dayOfMonth/$currentMonth/$year"
                                 },
                                 calendar.get(Calendar.YEAR),
                                 calendar.get(Calendar.MONTH),
@@ -150,19 +158,21 @@ fun Remainder(context: Context) {
             },
             confirmButton = {
                 Button(onClick = {
-                    val dateTimeInMilli = convertDateTimeToMillis(date.value,
+                    val dateTimeInMilli = convertDateTimeToMillis(date,
                         "$hourValue:$minuteValue"
                     )
-                    val remainder = Remainder(id = null,title=title, description=description, time=dateTimeInMilli, workerId = "")
+                    val remainder = Remainder(id = UUID.randomUUID(),title=title, description=description, time=dateTimeInMilli, workerId = "")
                     remainderViewModal.remainderData.add(remainder)
                     remainderViewModal.insertRemainderToDB(remainder = remainder)
+                    resetValuesToDefault()
                     showDialog.value = false
                 }) {
                     Text("Save")
                 }
             },
             dismissButton = {
-                Button(onClick = { showDialog.value = false }) {
+                Button(onClick = { resetValuesToDefault()
+                    showDialog.value = false }) {
                     Text("Cancel")
                 }
             }
@@ -183,13 +193,38 @@ fun Remainder(context: Context) {
                 Text(text = "No remainders!", fontSize = 25.sp, color = Color.White)
             }else{
                 remainderViewModal.remainderData.forEachIndexed { index, remainder ->
-                    Row {
+                    Row (
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .border(1.dp, Color.Blue)
+                            .padding(10.dp)
+                    ){
                         Column {
                             Text(text = remainder.title)
                             Text(text = remainder.description)
                             Text(text = convertMillisToDateTime(remainder.time))
+                            Row{
+                                Button(onClick = {
+                                    remainderViewModal.remainderData.removeAt(index)
+                                    remainderViewModal.deleteRemainderFromDB(remainder.id)
+                                }, modifier = Modifier.padding(end = 10.dp)) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete",
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                            }
+                                Button(onClick = { /*TODO*/ }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Edit",
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                }
+                            }
                         }
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
 

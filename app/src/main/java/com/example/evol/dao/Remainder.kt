@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.example.evol.entity.Remainder
+import java.util.UUID
 
 @Dao
 interface RemainderDAO {
@@ -23,4 +24,7 @@ interface RemainderDAO {
 
     @Query("DELETE FROM remainders")
     suspend fun deleteAll()
+
+    @Query("DELETE FROM remainders where id= :id")
+    suspend fun deleteById(id:UUID)
 }

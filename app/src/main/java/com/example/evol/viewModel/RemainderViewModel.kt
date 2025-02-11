@@ -10,6 +10,7 @@ import androidx.room.Room
 import com.example.evol.database.AppDatabase
 import com.example.evol.entity.Remainder
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 @RequiresApi(Build.VERSION_CODES.O)
 class RemainderViewModel(application: Application) : AndroidViewModel(application) {
@@ -35,6 +36,12 @@ class RemainderViewModel(application: Application) : AndroidViewModel(applicatio
     fun insertRemainderToDB(remainder: Remainder){
         viewModelScope.launch {
             remainderDAO.insert(remainder = remainder)
+        }
+    }
+
+    fun deleteRemainderFromDB(id: UUID){
+        viewModelScope.launch {
+            remainderDAO.deleteById(id)
         }
     }
 
