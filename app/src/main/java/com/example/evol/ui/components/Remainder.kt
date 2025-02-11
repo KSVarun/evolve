@@ -113,7 +113,7 @@ fun Remainder(context: Context) {
                         value = description,
                         onValueChange = { description = it },
                         label = { Text("Description") },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().height(120.dp)
                     )
                     Spacer(modifier = Modifier.height(20.dp))
                     Row(modifier = Modifier
