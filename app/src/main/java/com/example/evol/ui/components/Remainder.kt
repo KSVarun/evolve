@@ -52,6 +52,7 @@ import com.example.evol.utils.getCurrentDate
 import com.example.evol.utils.getDefaultHourToShow
 import com.example.evol.utils.getValueInTwoDigits
 import com.example.evol.utils.hashCodeToColor
+import com.example.evol.utils.scheduleNotification
 import com.example.evol.viewModel.RemainderViewModel
 import com.example.evol.viewModelFactory.RemainderViewModelFactory
 import java.util.Calendar
@@ -186,6 +187,7 @@ fun Remainder(context: Context) {
                     else {
                         remainderViewModal.remainderData.add(remainder)
                         remainderViewModal.insertRemainderToDB(remainder)
+                        scheduleNotification(context,remainder.time-System.currentTimeMillis(),remainder.title,remainder.description)
                     }
                     resetValuesToDefault()
                     showDialog.value = false

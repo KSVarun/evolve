@@ -32,22 +32,13 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
 import com.example.evol.service.Notification
-import com.example.evol.service.NotificationWorker
-import com.example.evol.ui.components.TabItem.Timer.title
+import com.example.evol.utils.scheduleNotification
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Calendar
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 data class Step(
     val name: String,
@@ -199,23 +190,7 @@ fun Timer(context: Context) {
 
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
-fun scheduleNotification(context: Context, duration: Long, title: String, message: String){
-    val data = workDataOf(
-        "title" to title ,
-        "message" to message
-    )
-    val workRequest = OneTimeWorkRequestBuilder<NotificationWorker>()
-        .setInputData(data)
-        .setInitialDelay(duration, TimeUnit.MILLISECONDS)  // Change the delay as needed
-        .addTag("reminder_notification")
-        .build()
 
-//            WorkManager.getInstance(context).cancelAllWorkByTag("reminder_notification")
-//            WorkManager.getInstance(context).enqueue(workRequest)
-
-    WorkManager.getInstance(context).enqueue(workRequest)
-}
 
 fun createNotificationChannel(context: Context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
