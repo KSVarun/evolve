@@ -32,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,6 +77,9 @@ fun Remainder(context: Context) {
         mutableStateOf("00")
     }
     val calendar = Calendar.getInstance()
+    var editingRemainderId: MutableState<UUID?> = remember {
+        mutableStateOf(null)
+    }
 
     fun resetValuesToDefault(){
         title=""
@@ -83,6 +87,7 @@ fun Remainder(context: Context) {
         hourValue=getDefaultHourToShow()
         date=getCurrentDate()
         minuteValue="00"
+        editingRemainderId.value=null
     }
 
 
@@ -97,9 +102,9 @@ fun Remainder(context: Context) {
                     OutlinedTextField(
                         value = title,
                         onValueChange = { value ->
-                            if (value.length <= 20) title = value
+                            if (value.length <= 50) title = value
                         },
-                        label = { Text("Title (max 20 characters)") },
+                        label = { Text("Title (max 50 characters)") },
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -112,7 +117,9 @@ fun Remainder(context: Context) {
                     Spacer(modifier = Modifier.height(20.dp))
                     Row(modifier = Modifier
                         .fillMaxWidth()) {
-                        Text(text = date, modifier =  Modifier.clickable {
+                        Text(text =
+                            date
+                        , modifier =  Modifier.clickable {
                             DatePickerDialog(
                                 context,
                                 { _, year, month, dayOfMonth ->
@@ -161,9 +168,25 @@ fun Remainder(context: Context) {
                     val dateTimeInMilli = convertDateTimeToMillis(date,
                         "$hourValue:$minuteValue"
                     )
-                    val remainder = Remainder(id = UUID.randomUUID(),title=title, description=description, time=dateTimeInMilli, workerId = "")
-                    remainderViewModal.remainderData.add(remainder)
-                    remainderViewModal.insertRemainderToDB(remainder = remainder)
+                    val remainder = Remainder(
+                        id = editingRemainderId.value ?: UUID.randomUUID(),
+                        title = title,
+                        description = description,
+                        time = dateTimeInMilli,
+                        workerId = ""
+                    )
+
+                    if(editingRemainderId.value !== null){
+                        val indexToUpdate = remainderViewModal.remainderData.indexOfFirst { remainderData -> remainderData.id == remainder.id }
+                        if(indexToUpdate>=0){
+                            remainderViewModal.remainderData[indexToUpdate]=remainder
+                        }
+                        remainderViewModal.updateRemainderByIDFromDB(remainder.id,remainder.title,remainder.description,remainder.time)
+                    }
+                    else {
+                        remainderViewModal.remainderData.add(remainder)
+                        remainderViewModal.insertRemainderToDB(remainder)
+                    }
                     resetValuesToDefault()
                     showDialog.value = false
                 }) {
@@ -171,7 +194,8 @@ fun Remainder(context: Context) {
                 }
             },
             dismissButton = {
-                Button(onClick = { resetValuesToDefault()
+                Button(onClick = {
+                    resetValuesToDefault()
                     showDialog.value = false }) {
                     Text("Cancel")
                 }
@@ -202,7 +226,7 @@ fun Remainder(context: Context) {
                         Column {
                             Text(text = remainder.title)
                             Text(text = remainder.description)
-                            Text(text = convertMillisToDateTime(remainder.time))
+                            Text(text = convertMillisToDateTime(remainder.time, "dd/MM/yyyy HH:mm"))
                             Row{
                                 Button(onClick = {
                                     remainderViewModal.remainderData.removeAt(index)
@@ -214,7 +238,15 @@ fun Remainder(context: Context) {
                                         modifier = Modifier.size(15.dp)
                                     )
                             }
-                                Button(onClick = { /*TODO*/ }) {
+                                Button(onClick = {
+                                    showDialog.value=true
+                                    editingRemainderId.value=remainder.id
+                                    title=remainder.title
+                                    description=remainder.description
+                                    date = convertMillisToDateTime(remainder.time, "dd/MM/yyyy")
+                                    hourValue=convertMillisToDateTime(remainder.time, "HH")
+                                    minuteValue=convertMillisToDateTime(remainder.time, "mm")
+                                }) {
                                     Icon(
                                         imageVector = Icons.Default.Edit,
                                         contentDescription = "Edit",

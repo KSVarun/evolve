@@ -45,4 +45,10 @@ class RemainderViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun updateRemainderByIDFromDB(id:UUID, title:String, description:String, time:Long){
+        viewModelScope.launch {
+            remainderDAO.updateRemainderById(id, title, description,time)
+        }
+    }
+
 }

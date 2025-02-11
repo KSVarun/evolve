@@ -49,7 +49,7 @@ fun convertDateTimeToMillis(dateString: String, timeString: String): Long {
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
-fun convertMillisToDateTime(millis:Long): String {
-    val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.systemDefault())
+fun convertMillisToDateTime(millis:Long, pattern:String): String {
+    val formatter = DateTimeFormatter.ofPattern(pattern).withZone(ZoneId.systemDefault())
     return formatter.format(Instant.ofEpochMilli(millis))
 }
