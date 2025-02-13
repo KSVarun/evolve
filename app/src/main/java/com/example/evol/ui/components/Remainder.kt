@@ -29,6 +29,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -77,8 +78,13 @@ fun Remainder(context: Context) {
     var minuteValue by remember {
         mutableStateOf("00")
     }
+    var titleErrorMessage by remember {
+        mutableStateOf("")
+    }
     val calendar = Calendar.getInstance()
-    var editingRemainderId: MutableState<UUID?> = remember {
+    calendar.set(Calendar.HOUR_OF_DAY, hourValue.toInt())
+    calendar.set(Calendar.MINUTE, minuteValue.toInt())
+    val editingRemainderId: MutableState<UUID?> = remember {
         mutableStateOf(null)
     }
 
@@ -89,6 +95,7 @@ fun Remainder(context: Context) {
         date=getCurrentDate()
         minuteValue="00"
         editingRemainderId.value=null
+        titleErrorMessage=""
     }
 
 
@@ -103,17 +110,29 @@ fun Remainder(context: Context) {
                     OutlinedTextField(
                         value = title,
                         onValueChange = { value ->
+                            if(value.isNotEmpty() && titleErrorMessage.isNotEmpty()){
+                                titleErrorMessage=""
+                            }
+                            if(value.isEmpty()){
+                                titleErrorMessage="Title is required!"
+                            }
                             if (value.length <= 50) title = value
                         },
-                        label = { Text("Title (max 50 characters)") },
+                        label = { Text("Title* (max 50 characters)") },
                         modifier = Modifier.fillMaxWidth()
                     )
+                    if(titleErrorMessage.isNotEmpty()){
+                        Text(text = titleErrorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 5.dp))
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = description,
                         onValueChange = { description = it },
                         label = { Text("Description") },
-                        modifier = Modifier.fillMaxWidth().height(120.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                        
                     )
                     Spacer(modifier = Modifier.height(20.dp))
                     Row(modifier = Modifier
@@ -166,6 +185,10 @@ fun Remainder(context: Context) {
             },
             confirmButton = {
                 Button(onClick = {
+                    if(title.isEmpty()){
+                        titleErrorMessage="Title is required"
+                        return@Button
+                    }
                     val dateTimeInMilli = convertDateTimeToMillis(date,
                         "$hourValue:$minuteValue"
                     )
