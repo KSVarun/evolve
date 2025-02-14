@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.work.WorkManager
 import com.example.evol.entity.Remainder
 import com.example.evol.utils.convertDateTimeToMillis
 import com.example.evol.utils.convertMillisToDateTime
@@ -84,7 +85,7 @@ fun Remainder(context: Context) {
     val calendar = Calendar.getInstance()
     calendar.set(Calendar.HOUR_OF_DAY, hourValue.toInt())
     calendar.set(Calendar.MINUTE, minuteValue.toInt())
-    val editingRemainderId: MutableState<UUID?> = remember {
+    val editingRemainder: MutableState<Remainder?> = remember {
         mutableStateOf(null)
     }
 
@@ -94,7 +95,7 @@ fun Remainder(context: Context) {
         hourValue=getDefaultHourToShow()
         date=getCurrentDate()
         minuteValue="00"
-        editingRemainderId.value=null
+        editingRemainder.value=null
         titleErrorMessage=""
     }
 
@@ -102,7 +103,7 @@ fun Remainder(context: Context) {
 
     if (showDialog.value) {
         AlertDialog(
-            modifier = Modifier.height(400.dp),
+            modifier = Modifier.height(430.dp),
             onDismissRequest = { showDialog.value = false },
             title = { Text("Add remainder") },
             text = {
@@ -193,24 +194,34 @@ fun Remainder(context: Context) {
                         "$hourValue:$minuteValue"
                     )
                     val remainder = Remainder(
-                        id = editingRemainderId.value ?: UUID.randomUUID(),
+                        id = editingRemainder.value?.id ?: UUID.randomUUID(),
                         title = title,
                         description = description,
                         time = dateTimeInMilli,
-                        workerId = ""
+                        workerId = editingRemainder.value?.workerId
                     )
 
-                    if(editingRemainderId.value !== null){
+                    if(editingRemainder.value?.id !== null){
                         val indexToUpdate = remainderViewModal.remainderData.indexOfFirst { remainderData -> remainderData.id == remainder.id }
+                        if(editingRemainder.value?.workerId!==null){
+                            editingRemainder.value!!.workerId?.let {
+                                WorkManager.getInstance(context).cancelWorkById(
+                                    it
+                                )
+                            }
+                        }
+                        val workerId = scheduleNotification(context,remainder.time-System.currentTimeMillis(),remainder.title,remainder.description)
+                        remainder.workerId=workerId
                         if(indexToUpdate>=0){
                             remainderViewModal.remainderData[indexToUpdate]=remainder
                         }
-                        remainderViewModal.updateRemainderByIDFromDB(remainder.id,remainder.title,remainder.description,remainder.time)
+                        remainderViewModal.updateRemainderByIDFromDB(remainder.id,remainder.title,remainder.description,remainder.time, remainder.workerId!!)
                     }
                     else {
+                        val workerId = scheduleNotification(context,remainder.time-System.currentTimeMillis(),remainder.title,remainder.description)
+                        remainder.workerId=workerId
                         remainderViewModal.remainderData.add(remainder)
                         remainderViewModal.insertRemainderToDB(remainder)
-                        scheduleNotification(context,remainder.time-System.currentTimeMillis(),remainder.title,remainder.description)
                     }
                     resetValuesToDefault()
                     showDialog.value = false
@@ -254,6 +265,10 @@ fun Remainder(context: Context) {
                             Text(text = convertMillisToDateTime(remainder.time, "dd/MM/yyyy HH:mm"))
                             Row{
                                 Button(onClick = {
+                                    if(remainder.workerId !== null) {
+                                        WorkManager.getInstance(context)
+                                            .cancelWorkById(remainder.workerId!!)
+                                    }
                                     remainderViewModal.remainderData.removeAt(index)
                                     remainderViewModal.deleteRemainderFromDB(remainder.id)
                                 }, modifier = Modifier.padding(end = 10.dp)) {
@@ -265,7 +280,7 @@ fun Remainder(context: Context) {
                             }
                                 Button(onClick = {
                                     showDialog.value=true
-                                    editingRemainderId.value=remainder.id
+                                    editingRemainder.value=remainder
                                     title=remainder.title
                                     description=remainder.description
                                     date = convertMillisToDateTime(remainder.time, "dd/MM/yyyy")
