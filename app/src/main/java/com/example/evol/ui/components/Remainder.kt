@@ -5,6 +5,7 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
 import android.os.Build
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,6 +50,8 @@ import androidx.compose.ui.zIndex
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.work.WorkManager
+import com.example.evol.constants.newFilterText
+import com.example.evol.constants.oldFilterText
 import com.example.evol.entity.Remainder
 import com.example.evol.utils.convertDateTimeToMillis
 import com.example.evol.utils.convertMillisToDateTime
@@ -83,8 +87,8 @@ fun Remainder(context: Context) {
     var titleErrorMessage by remember {
         mutableStateOf("")
     }
-    var filter by remember {
-        mutableStateOf<String?>(null)
+    val filter = remember {
+        mutableStateListOf(newFilterText)
     }
     val calendar = Calendar.getInstance()
     calendar.set(Calendar.HOUR_OF_DAY, hourValue.toInt())
@@ -103,7 +107,7 @@ fun Remainder(context: Context) {
         titleErrorMessage=""
     }
 
-
+println(filter)
 
     if (showDialog.value) {
         AlertDialog(
@@ -137,7 +141,7 @@ fun Remainder(context: Context) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(120.dp)
-                        
+
                     )
                     Spacer(modifier = Modifier.height(20.dp))
                     Row(modifier = Modifier
@@ -251,10 +255,36 @@ fun Remainder(context: Context) {
             .fillMaxSize()
             .padding(start = 8.dp)
             ){
-            Button(onClick = { filter="old" }) {
+            Button(onClick = {
+                if(filter.contains(oldFilterText) && filter.contains(newFilterText)){
+                    filter.remove(oldFilterText)
+                }
+                else if(filter.contains(oldFilterText) && !filter.contains(newFilterText)){
+                    filter.add(newFilterText)
+                    filter.remove(oldFilterText)
+                    Toast.makeText(context, "At least one filter will be selected", Toast.LENGTH_SHORT).show()
+                }
+                else{
+                    filter.add(oldFilterText)
+                }
+            }, colors = ButtonDefaults.buttonColors(containerColor = if(filter.contains(
+                    oldFilterText)){hashCodeToColor("#4999e9".toColorInt())}else{Color.Gray})) {
                 Text("Older")
             }
-            Button(onClick = { filter="new" }, modifier = Modifier.padding(start=10.dp)) {
+            Button(onClick = {
+                if(filter.contains(newFilterText) && filter.contains(oldFilterText)){
+                    filter.remove(newFilterText)
+                }
+                else if(filter.contains(newFilterText) && !filter.contains(oldFilterText)){
+                    filter.add(oldFilterText)
+                    filter.remove(newFilterText)
+                    Toast.makeText(context, "At least one filter will be selected", Toast.LENGTH_SHORT).show()
+                }
+                else{
+                    filter.add(newFilterText)
+                }
+
+            }, modifier = Modifier.padding(start=10.dp), colors = ButtonDefaults.buttonColors(containerColor = if(filter.contains(newFilterText)){hashCodeToColor("#4999e9".toColorInt())}else{Color.Gray})) {
                 Text("New")
             }
         }
@@ -267,7 +297,14 @@ fun Remainder(context: Context) {
             if(remainderViewModal.remainderData.size==0) {
                 Text(text = "No remainders!", fontSize = 25.sp, color = Color.White)
             }else{
+
                 remainderViewModal.remainderData.forEachIndexed { index, remainder ->
+                    if(filter.contains(oldFilterText) && !filter.contains(newFilterText) && remainder.time > System.currentTimeMillis()){
+                        return@forEachIndexed
+                    }
+                    if(filter.contains(newFilterText) && !filter.contains(oldFilterText) && remainder.time < System.currentTimeMillis()){
+                        return@forEachIndexed
+                    }
                     Row (
                         modifier = Modifier
                             .fillMaxSize()
