@@ -10,6 +10,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -43,7 +45,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -74,6 +79,7 @@ fun Remainder(context: Context) {
     val scrollState = rememberScrollState()
     val showDialog = remember { mutableStateOf(false) }
     var title by remember { mutableStateOf("") }
+    var search by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var date by remember {
         mutableStateOf(getCurrentDate())
@@ -96,46 +102,48 @@ fun Remainder(context: Context) {
     val editingRemainder: MutableState<Remainder?> = remember {
         mutableStateOf(null)
     }
+    val focusManager = LocalFocusManager.current
+    val searchedResults = remember { mutableListOf<Remainder>() }
 
-    fun resetValuesToDefault(){
-        title=""
-        description=""
-        hourValue=getDefaultHourToShow()
-        date=getCurrentDate()
-        minuteValue="00"
-        editingRemainder.value=null
-        titleErrorMessage=""
+    fun resetValuesToDefault() {
+        title = ""
+        description = ""
+        hourValue = getDefaultHourToShow()
+        date = getCurrentDate()
+        minuteValue = "00"
+        editingRemainder.value = null
+        titleErrorMessage = ""
     }
 
-println(filter)
-
     if (showDialog.value) {
-        AlertDialog(
-            modifier = Modifier.height(430.dp),
+        AlertDialog(modifier = Modifier.height(430.dp),
             onDismissRequest = { showDialog.value = false },
             title = { Text("Add remainder") },
             text = {
                 Column {
-                    OutlinedTextField(
-                        value = title,
+                    OutlinedTextField(value = title,
                         onValueChange = { value ->
-                            if(value.isNotEmpty() && titleErrorMessage.isNotEmpty()){
-                                titleErrorMessage=""
+                            if (value.isNotEmpty() && titleErrorMessage.isNotEmpty()) {
+                                titleErrorMessage = ""
                             }
-                            if(value.isEmpty()){
-                                titleErrorMessage="Title is required!"
+                            if (value.isEmpty()) {
+                                titleErrorMessage = "Title is required!"
                             }
                             if (value.length <= 50) title = value
                         },
                         label = { Text("Title* (max 50 characters)") },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    if(titleErrorMessage.isNotEmpty()){
-                        Text(text = titleErrorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 5.dp))
+                    if (titleErrorMessage.isNotEmpty()) {
+                        Text(
+                            text = titleErrorMessage,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(start = 5.dp)
+                        )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = description,
+                    OutlinedTextField(value = description,
                         onValueChange = { description = it },
                         label = { Text("Description") },
                         modifier = Modifier
@@ -144,16 +152,15 @@ println(filter)
 
                     )
                     Spacer(modifier = Modifier.height(20.dp))
-                    Row(modifier = Modifier
-                        .fillMaxWidth()) {
-                        Text(text =
-                            date
-                        , modifier =  Modifier.clickable {
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(text = date, modifier = Modifier.clickable {
                             DatePickerDialog(
                                 context,
                                 { _, year, month, dayOfMonth ->
                                     calendar.set(year, month, dayOfMonth)
-                                    val currentMonth = getValueInTwoDigits(month+1)
+                                    val currentMonth = getValueInTwoDigits(month + 1)
                                     date = "$dayOfMonth/$currentMonth/$year"
                                 },
                                 calendar.get(Calendar.YEAR),
@@ -194,12 +201,12 @@ println(filter)
             },
             confirmButton = {
                 Button(onClick = {
-                    if(title.isEmpty()){
-                        titleErrorMessage="Title is required"
+                    if (title.isEmpty()) {
+                        titleErrorMessage = "Title is required"
                         return@Button
                     }
-                    val dateTimeInMilli = convertDateTimeToMillis(date,
-                        "$hourValue:$minuteValue"
+                    val dateTimeInMilli = convertDateTimeToMillis(
+                        date, "$hourValue:$minuteValue"
                     )
                     val remainder = Remainder(
                         id = editingRemainder.value?.id ?: UUID.randomUUID(),
@@ -209,25 +216,41 @@ println(filter)
                         workerId = editingRemainder.value?.workerId
                     )
 
-                    if(editingRemainder.value?.id !== null){
-                        val indexToUpdate = remainderViewModal.remainderData.indexOfFirst { remainderData -> remainderData.id == remainder.id }
-                        if(editingRemainder.value?.workerId!==null){
+                    if (editingRemainder.value?.id !== null) {
+                        val indexToUpdate =
+                            remainderViewModal.remainderData.indexOfFirst { remainderData -> remainderData.id == remainder.id }
+                        if (editingRemainder.value?.workerId !== null) {
                             editingRemainder.value!!.workerId?.let {
                                 WorkManager.getInstance(context).cancelWorkById(
                                     it
                                 )
                             }
                         }
-                        val workerId = scheduleNotification(context,remainder.time-System.currentTimeMillis(),remainder.title,remainder.description)
-                        remainder.workerId=workerId
-                        if(indexToUpdate>=0){
-                            remainderViewModal.remainderData[indexToUpdate]=remainder
+                        val workerId = scheduleNotification(
+                            context,
+                            remainder.time - System.currentTimeMillis(),
+                            remainder.title,
+                            remainder.description
+                        )
+                        remainder.workerId = workerId
+                        if (indexToUpdate >= 0) {
+                            remainderViewModal.remainderData[indexToUpdate] = remainder
                         }
-                        remainderViewModal.updateRemainderByIDFromDB(remainder.id,remainder.title,remainder.description,remainder.time, remainder.workerId!!)
-                    }
-                    else {
-                        val workerId = scheduleNotification(context,remainder.time-System.currentTimeMillis(),remainder.title,remainder.description)
-                        remainder.workerId=workerId
+                        remainderViewModal.updateRemainderByIDFromDB(
+                            remainder.id,
+                            remainder.title,
+                            remainder.description,
+                            remainder.time,
+                            remainder.workerId!!
+                        )
+                    } else {
+                        val workerId = scheduleNotification(
+                            context,
+                            remainder.time - System.currentTimeMillis(),
+                            remainder.title,
+                            remainder.description
+                        )
+                        remainder.workerId = workerId
                         remainderViewModal.remainderData.add(remainder)
                         remainderViewModal.insertRemainderToDB(remainder)
                     }
@@ -240,134 +263,193 @@ println(filter)
             dismissButton = {
                 Button(onClick = {
                     resetValuesToDefault()
-                    showDialog.value = false }) {
+                    showDialog.value = false
+                }) {
                     Text("Cancel")
                 }
-            }
-        )
+            })
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-    ) {
-        Row(modifier = Modifier
-            .fillMaxSize()
-            .padding(start = 8.dp)
-            ){
-            Button(onClick = {
-                if(filter.contains(oldFilterText) && filter.contains(newFilterText)){
-                    filter.remove(oldFilterText)
-                }
-                else if(filter.contains(oldFilterText) && !filter.contains(newFilterText)){
-                    filter.add(newFilterText)
-                    filter.remove(oldFilterText)
-                    Toast.makeText(context, "At least one filter will be selected", Toast.LENGTH_SHORT).show()
-                }
-                else{
-                    filter.add(oldFilterText)
-                }
-            }, colors = ButtonDefaults.buttonColors(containerColor = if(filter.contains(
-                    oldFilterText)){hashCodeToColor("#4999e9".toColorInt())}else{Color.Gray})) {
-                Text("Older")
-            }
-            Button(onClick = {
-                if(filter.contains(newFilterText) && filter.contains(oldFilterText)){
-                    filter.remove(newFilterText)
-                }
-                else if(filter.contains(newFilterText) && !filter.contains(oldFilterText)){
-                    filter.add(oldFilterText)
-                    filter.remove(newFilterText)
-                    Toast.makeText(context, "At least one filter will be selected", Toast.LENGTH_SHORT).show()
-                }
-                else{
-                    filter.add(newFilterText)
-                }
-
-            }, modifier = Modifier.padding(start=10.dp), colors = ButtonDefaults.buttonColors(containerColor = if(filter.contains(newFilterText)){hashCodeToColor("#4999e9".toColorInt())}else{Color.Gray})) {
-                Text("New")
-            }
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .pointerInput(Unit) {
+            detectTapGestures { focusManager.clearFocus() }
         }
-        Column(
-            modifier = Modifier
-                .padding(start = 8.dp, end = 8.dp, top = 50.dp)
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-        ) {
-            if(remainderViewModal.remainderData.size==0) {
-                Text(text = "No remainders!", fontSize = 25.sp, color = Color.White)
-            }else{
 
-                remainderViewModal.remainderData.forEachIndexed { index, remainder ->
-                    if(filter.contains(oldFilterText) && !filter.contains(newFilterText) && remainder.time > System.currentTimeMillis()){
-                        return@forEachIndexed
-                    }
-                    if(filter.contains(newFilterText) && !filter.contains(oldFilterText) && remainder.time < System.currentTimeMillis()){
-                        return@forEachIndexed
-                    }
-                    Row (
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .border(
-                                1.dp, if (System.currentTimeMillis() < remainder.time) {
-                                    Color.Blue
-                                } else {
-                                    Color.Gray
-                                }
+    ) {
+        Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 2.dp)) {
+            OutlinedTextField(value = search,
+                onValueChange = { value ->
+                    search = value
+                    searchedResults.clear()
+                    searchedResults.addAll(remainderViewModal.remainderData.filter { remainder ->
+                        remainder.title.contains(
+                            value
+                        )
+                    })
+
+                },
+                label = { Text("Search by title") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp)
+            )
+            Row(modifier = Modifier.padding(bottom = 4.dp)) {
+                Button(
+                    onClick = {
+                        focusManager.clearFocus()
+                        if (filter.contains(oldFilterText) && filter.contains(newFilterText)) {
+                            filter.remove(oldFilterText)
+                        } else if (filter.contains(oldFilterText) && !filter.contains(newFilterText)) {
+                            filter.add(newFilterText)
+                            filter.remove(oldFilterText)
+                            Toast.makeText(
+                                context, "At least one filter will be selected", Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            filter.add(oldFilterText)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (filter.contains(
+                                oldFilterText
                             )
-                            .background(
-                                if (System.currentTimeMillis() < remainder.time) {
-                                    Color.Transparent
-                                } else {
-                                    Color.Gray
-                                }
-                            )
-                            .padding(10.dp)
-                    ){
-                        Column() {
-                            Text(text = remainder.title)
-                            Text(text = remainder.description)
-                            Text(text = convertMillisToDateTime(remainder.time, "dd/MM/yyyy HH:mm"))
-                            Row{
-                                Button(onClick = {
-                                    if(remainder.workerId !== null) {
-                                        WorkManager.getInstance(context)
-                                            .cancelWorkById(remainder.workerId!!)
+                        ) {
+                            hashCodeToColor("#4999e9".toColorInt())
+                        } else {
+                            Color.Gray
+                        }
+                    ),
+
+                    ) {
+                    Text("Older")
+                }
+                Button(
+                    onClick = {
+                        focusManager.clearFocus()
+                        if (filter.contains(newFilterText) && filter.contains(oldFilterText)) {
+                            filter.remove(newFilterText)
+                        } else if (filter.contains(newFilterText) && !filter.contains(oldFilterText)) {
+                            filter.add(oldFilterText)
+                            filter.remove(newFilterText)
+                            Toast.makeText(
+                                context, "At least one filter will be selected", Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            filter.add(newFilterText)
+                        }
+
+                    },
+                    modifier = Modifier.padding(start = 10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (filter.contains(newFilterText)) {
+                            hashCodeToColor("#4999e9".toColorInt())
+                        } else {
+                            Color.Gray
+                        }
+                    )
+                ) {
+                    Text("New")
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+            ) {
+                if (search.isNotEmpty() && searchedResults.size == 0) {
+                    Text(
+                        text = "Empty results, please refine your search!",
+                        fontSize = 25.sp,
+                        color = Color.White
+                    )
+                }
+                if (remainderViewModal.remainderData.size == 0) {
+                    Text(text = "No remainders!", fontSize = 25.sp, color = Color.White)
+                } else {
+                    remainderViewModal.remainderData.forEachIndexed { index, remainder ->
+                        if (filter.contains(oldFilterText) && !filter.contains(newFilterText) && remainder.time > System.currentTimeMillis()) {
+                            return@forEachIndexed
+                        }
+                        if (filter.contains(newFilterText) && !filter.contains(oldFilterText) && remainder.time < System.currentTimeMillis()) {
+                            return@forEachIndexed
+                        }
+                        if (search.isNotEmpty() && !remainder.title.contains(search)) {
+                            return@forEachIndexed
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (System.currentTimeMillis() < remainder.time) {
+                                        Color.Transparent
+                                    } else {
+                                        Color.Gray
                                     }
-                                    remainderViewModal.remainderData.removeAt(index)
-                                    remainderViewModal.deleteRemainderFromDB(remainder.id)
-                                }, modifier = Modifier.padding(end = 10.dp)) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete",
-                                        modifier = Modifier.size(15.dp)
+                                )
+                                .border(
+                                    1.dp, if (System.currentTimeMillis() < remainder.time) {
+                                        hashCodeToColor("#4999e9".toColorInt())
+                                    } else {
+                                        Color.Gray
+                                    }, shape = RoundedCornerShape(8.dp)
+                                )
+                                .padding(10.dp)
+
+                        ) {
+                            Column() {
+                                Text(text = remainder.title)
+                                Text(text = remainder.description)
+                                Text(
+                                    text = convertMillisToDateTime(
+                                        remainder.time, "dd/MM/yyyy HH:mm"
                                     )
-                            }
-                                Button(onClick = {
-                                    showDialog.value=true
-                                    editingRemainder.value=remainder
-                                    title=remainder.title
-                                    description=remainder.description
-                                    date = convertMillisToDateTime(remainder.time, "dd/MM/yyyy")
-                                    hourValue=convertMillisToDateTime(remainder.time, "HH")
-                                    minuteValue=convertMillisToDateTime(remainder.time, "mm")
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit",
-                                        modifier = Modifier.size(15.dp)
-                                    )
+                                )
+                                Row {
+                                    Button(onClick = {
+                                        focusManager.clearFocus()
+                                        if (remainder.workerId !== null) {
+                                            WorkManager.getInstance(context)
+                                                .cancelWorkById(remainder.workerId!!)
+                                        }
+                                        remainderViewModal.remainderData.removeAt(index)
+                                        remainderViewModal.deleteRemainderFromDB(remainder.id)
+                                    }, modifier = Modifier.padding(end = 10.dp)) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete",
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                    }
+                                    Button(onClick = {
+                                        focusManager.clearFocus()
+                                        showDialog.value = true
+                                        editingRemainder.value = remainder
+                                        title = remainder.title
+                                        description = remainder.description
+                                        date = convertMillisToDateTime(remainder.time, "dd/MM/yyyy")
+                                        hourValue = convertMillisToDateTime(remainder.time, "HH")
+                                        minuteValue = convertMillisToDateTime(remainder.time, "mm")
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit",
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
-            }
 
+            }
         }
         Button(
             onClick = {
+                focusManager.clearFocus()
                 showDialog.value = true
             },
             modifier = Modifier
@@ -381,17 +463,17 @@ println(filter)
             contentPadding = PaddingValues(0.dp),
         ) {
             Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
             ) {
 
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add",
-                        modifier = Modifier.size(30.dp)
-                    )
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add",
+                    modifier = Modifier.size(30.dp)
+                )
 
             }
         }
+
     }
 }
