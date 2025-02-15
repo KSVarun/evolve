@@ -38,7 +38,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,8 +76,23 @@ import java.util.UUID
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun Remainder(context: Context) {
+
+
     val remainderViewModal: RemainderViewModel =
         viewModel(factory = RemainderViewModelFactory(context.applicationContext as Application))
+    val remainderData by remainderViewModal.remainderData.observeAsState(emptyList())
+    fun getPastRemainders(): List<Remainder> {
+        return remainderData.filter { remainder ->
+            remainder.time < System.currentTimeMillis()
+        }
+    }
+
+    fun getFutureRemainders(): List<Remainder> {
+        return remainderData.filter { remainder ->
+            remainder.time > System.currentTimeMillis()
+        }
+    }
+
     val scrollState = rememberScrollState()
     val showDialog = remember { mutableStateOf(false) }
     var title by remember { mutableStateOf("") }
@@ -103,7 +120,60 @@ fun Remainder(context: Context) {
         mutableStateOf(null)
     }
     val focusManager = LocalFocusManager.current
-    val searchedResults = remember { mutableListOf<Remainder>() }
+
+
+    fun recomputeResultRemainders(data: List<Remainder>): List<Remainder> {
+        if (search.isNotEmpty() && filter.contains(oldFilterText) && filter.contains(newFilterText)) {
+
+            return data.filter { remainder ->
+                remainder.title.contains(
+                    search
+                )
+            }
+        } else if (search.isEmpty() && filter.contains(oldFilterText) && filter.contains(
+                newFilterText
+            )
+        ) {
+            return data
+        } else if (search.isNotEmpty() && filter.contains(oldFilterText) && !filter.contains(
+                newFilterText
+            )
+        ) {
+            return data.filter { remainder ->
+                remainder.title.contains(
+                    search
+                ) && remainder.time < System.currentTimeMillis()
+            }
+        } else if (search.isNotEmpty() && !filter.contains(oldFilterText) && filter.contains(
+                newFilterText
+            )
+        ) {
+
+            return data.filter { remainder ->
+                remainder.title.contains(
+                    search
+                ) && remainder.time > System.currentTimeMillis()
+            }
+        } else if (search.isEmpty() && filter.contains(oldFilterText) && !filter.contains(
+                newFilterText
+            )
+        ) {
+            return getPastRemainders()
+        } else if (search.isEmpty() && !filter.contains(oldFilterText) && filter.contains(
+                newFilterText
+            )
+        ) {
+            return getFutureRemainders()
+        } else {
+            return data
+        }
+    }
+
+    val resultRemainders = remember {
+        derivedStateOf {
+            recomputeResultRemainders(remainderData)
+        }
+    }
 
     fun resetValuesToDefault() {
         title = ""
@@ -160,8 +230,9 @@ fun Remainder(context: Context) {
                                 context,
                                 { _, year, month, dayOfMonth ->
                                     calendar.set(year, month, dayOfMonth)
+                                    val selectedDate = getValueInTwoDigits(dayOfMonth)
                                     val currentMonth = getValueInTwoDigits(month + 1)
-                                    date = "$dayOfMonth/$currentMonth/$year"
+                                    date = "$selectedDate/$currentMonth/$year"
                                 },
                                 calendar.get(Calendar.YEAR),
                                 calendar.get(Calendar.MONTH),
@@ -215,10 +286,7 @@ fun Remainder(context: Context) {
                         time = dateTimeInMilli,
                         workerId = editingRemainder.value?.workerId
                     )
-
                     if (editingRemainder.value?.id !== null) {
-                        val indexToUpdate =
-                            remainderViewModal.remainderData.indexOfFirst { remainderData -> remainderData.id == remainder.id }
                         if (editingRemainder.value?.workerId !== null) {
                             editingRemainder.value!!.workerId?.let {
                                 WorkManager.getInstance(context).cancelWorkById(
@@ -233,9 +301,6 @@ fun Remainder(context: Context) {
                             remainder.description
                         )
                         remainder.workerId = workerId
-                        if (indexToUpdate >= 0) {
-                            remainderViewModal.remainderData[indexToUpdate] = remainder
-                        }
                         remainderViewModal.updateRemainderByIDFromDB(
                             remainder.id,
                             remainder.title,
@@ -251,11 +316,11 @@ fun Remainder(context: Context) {
                             remainder.description
                         )
                         remainder.workerId = workerId
-                        remainderViewModal.remainderData.add(remainder)
                         remainderViewModal.insertRemainderToDB(remainder)
                     }
                     resetValuesToDefault()
                     showDialog.value = false
+                    recomputeResultRemainders(remainderData)
                 }) {
                     Text("Save")
                 }
@@ -281,13 +346,7 @@ fun Remainder(context: Context) {
             OutlinedTextField(value = search,
                 onValueChange = { value ->
                     search = value
-                    searchedResults.clear()
-                    searchedResults.addAll(remainderViewModal.remainderData.filter { remainder ->
-                        remainder.title.contains(
-                            value
-                        )
-                    })
-
+                    resultRemainders.apply { recomputeResultRemainders(remainderData) }
                 },
                 label = { Text("Search by title") },
                 modifier = Modifier
@@ -300,14 +359,20 @@ fun Remainder(context: Context) {
                         focusManager.clearFocus()
                         if (filter.contains(oldFilterText) && filter.contains(newFilterText)) {
                             filter.remove(oldFilterText)
+                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
                         } else if (filter.contains(oldFilterText) && !filter.contains(newFilterText)) {
                             filter.add(newFilterText)
                             filter.remove(oldFilterText)
+                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
                             Toast.makeText(
                                 context, "At least one filter will be selected", Toast.LENGTH_SHORT
                             ).show()
+                        } else if (!filter.contains(oldFilterText) && filter.contains(newFilterText)) {
+                            filter.add(oldFilterText)
+                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
                         } else {
                             filter.add(oldFilterText)
+                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -322,21 +387,27 @@ fun Remainder(context: Context) {
                     ),
 
                     ) {
-                    Text("Older")
+                    Text("Past")
                 }
                 Button(
                     onClick = {
                         focusManager.clearFocus()
                         if (filter.contains(newFilterText) && filter.contains(oldFilterText)) {
                             filter.remove(newFilterText)
+                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
                         } else if (filter.contains(newFilterText) && !filter.contains(oldFilterText)) {
                             filter.add(oldFilterText)
                             filter.remove(newFilterText)
+                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
                             Toast.makeText(
                                 context, "At least one filter will be selected", Toast.LENGTH_SHORT
                             ).show()
+                        } else if (filter.contains(oldFilterText) && !filter.contains(newFilterText)) {
+                            filter.add(newFilterText)
+                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
                         } else {
                             filter.add(newFilterText)
+                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
                         }
 
                     },
@@ -349,7 +420,7 @@ fun Remainder(context: Context) {
                         }
                     )
                 ) {
-                    Text("New")
+                    Text("Future")
                 }
             }
             Column(
@@ -357,26 +428,15 @@ fun Remainder(context: Context) {
                     .fillMaxSize()
                     .verticalScroll(scrollState)
             ) {
-                if (search.isNotEmpty() && searchedResults.size == 0) {
+                if (search.isNotEmpty() && resultRemainders.value.isEmpty()) {
                     Text(
-                        text = "Empty results, please refine your search!",
-                        fontSize = 25.sp,
-                        color = Color.White
+                        text = "Empty results, please refine your search!", fontSize = 25.sp
                     )
                 }
-                if (remainderViewModal.remainderData.size == 0) {
-                    Text(text = "No remainders!", fontSize = 25.sp, color = Color.White)
+                if (resultRemainders.value.isEmpty()) {
+                    Text(text = "No remainders!", fontSize = 25.sp)
                 } else {
-                    remainderViewModal.remainderData.forEachIndexed { index, remainder ->
-                        if (filter.contains(oldFilterText) && !filter.contains(newFilterText) && remainder.time > System.currentTimeMillis()) {
-                            return@forEachIndexed
-                        }
-                        if (filter.contains(newFilterText) && !filter.contains(oldFilterText) && remainder.time < System.currentTimeMillis()) {
-                            return@forEachIndexed
-                        }
-                        if (search.isNotEmpty() && !remainder.title.contains(search)) {
-                            return@forEachIndexed
-                        }
+                    resultRemainders.value.forEachIndexed { _, remainder ->
                         Row(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -398,8 +458,8 @@ fun Remainder(context: Context) {
                                 .padding(10.dp)
 
                         ) {
-                            Column() {
-                                Text(text = remainder.title)
+                            Column {
+                                Text(text = remainder.title, fontSize = 25.sp)
                                 Text(text = remainder.description)
                                 Text(
                                     text = convertMillisToDateTime(
@@ -413,8 +473,8 @@ fun Remainder(context: Context) {
                                             WorkManager.getInstance(context)
                                                 .cancelWorkById(remainder.workerId!!)
                                         }
-                                        remainderViewModal.remainderData.removeAt(index)
                                         remainderViewModal.deleteRemainderFromDB(remainder.id)
+                                        recomputeResultRemainders(remainderData)
                                     }, modifier = Modifier.padding(end = 10.dp)) {
                                         Icon(
                                             imageVector = Icons.Default.Delete,

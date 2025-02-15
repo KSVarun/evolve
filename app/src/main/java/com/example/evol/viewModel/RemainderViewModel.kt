@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import com.example.evol.database.AppDatabase
@@ -21,17 +22,7 @@ class RemainderViewModel(application: Application) : AndroidViewModel(applicatio
     ).fallbackToDestructiveMigration().build()
 
     private val remainderDAO = db.remainderDAO()
-    val remainderData = mutableStateListOf<Remainder>()
-
-    init {
-        loadRemainderDataFromDB()
-    }
-
-    private fun loadRemainderDataFromDB(){
-        viewModelScope.launch {
-            remainderData.addAll(remainderDAO.getAll())
-        }
-    }
+    val remainderData: LiveData<List<Remainder>> = remainderDAO.getAll()
 
     fun insertRemainderToDB(remainder: Remainder){
         viewModelScope.launch {

@@ -1,5 +1,6 @@
 package com.example.evol.dao
 
+import androidx.lifecycle.LiveData
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -20,7 +21,7 @@ interface RemainderDAO {
     suspend fun update(data: Remainder)
 
     @Query("SELECT * FROM remainders")
-    suspend fun getAll(): List<Remainder>
+    fun getAll(): LiveData<List<Remainder>>
 
     @Query("DELETE FROM remainders")
     suspend fun deleteAll()
