@@ -6,6 +6,7 @@ import android.app.TimePickerDialog
 import android.content.Context
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -81,6 +82,9 @@ fun Remainder(context: Context) {
     }
     var titleErrorMessage by remember {
         mutableStateOf("")
+    }
+    var filter by remember {
+        mutableStateOf<String?>(null)
     }
     val calendar = Calendar.getInstance()
     calendar.set(Calendar.HOUR_OF_DAY, hourValue.toInt())
@@ -243,9 +247,20 @@ fun Remainder(context: Context) {
         modifier = Modifier
             .fillMaxSize()
     ) {
+        Row(modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 8.dp)
+            ){
+            Button(onClick = { filter="old" }) {
+                Text("Older")
+            }
+            Button(onClick = { filter="new" }, modifier = Modifier.padding(start=10.dp)) {
+                Text("New")
+            }
+        }
         Column(
             modifier = Modifier
-                .padding(start = 8.dp, end = 8.dp, top = 8.dp)
+                .padding(start = 8.dp, end = 8.dp, top = 50.dp)
                 .fillMaxSize()
                 .verticalScroll(scrollState)
         ) {
@@ -256,10 +271,23 @@ fun Remainder(context: Context) {
                     Row (
                         modifier = Modifier
                             .fillMaxSize()
-                            .border(1.dp, Color.Blue)
+                            .border(
+                                1.dp, if (System.currentTimeMillis() < remainder.time) {
+                                    Color.Blue
+                                } else {
+                                    Color.Gray
+                                }
+                            )
+                            .background(
+                                if (System.currentTimeMillis() < remainder.time) {
+                                    Color.Transparent
+                                } else {
+                                    Color.Gray
+                                }
+                            )
                             .padding(10.dp)
                     ){
-                        Column {
+                        Column() {
                             Text(text = remainder.title)
                             Text(text = remainder.description)
                             Text(text = convertMillisToDateTime(remainder.time, "dd/MM/yyyy HH:mm"))
