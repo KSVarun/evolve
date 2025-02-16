@@ -82,15 +82,15 @@ fun Remainder(context: Context) {
         viewModel(factory = RemainderViewModelFactory(context.applicationContext as Application))
     val remainderData by remainderViewModal.remainderData.observeAsState(emptyList())
     fun getPastRemainders(): List<Remainder> {
-        return remainderData.filter { remainder ->
-            remainder.time < System.currentTimeMillis()
-        }
+        return remainderData.filter {
+            it.time < System.currentTimeMillis()
+        }.sortedBy { it.time }
     }
 
     fun getFutureRemainders(): List<Remainder> {
-        return remainderData.filter { remainder ->
-            remainder.time > System.currentTimeMillis()
-        }
+        return remainderData.filter {
+            it.time > System.currentTimeMillis()
+        }.sortedBy { it.time }
     }
 
     val scrollState = rememberScrollState()
@@ -124,36 +124,34 @@ fun Remainder(context: Context) {
 
     fun recomputeResultRemainders(data: List<Remainder>): List<Remainder> {
         if (search.isNotEmpty() && filter.contains(oldFilterText) && filter.contains(newFilterText)) {
-
-            return data.filter { remainder ->
-                remainder.title.contains(
+            return data.filter {
+                it.title.contains(
                     search
                 )
-            }
+            }.sortedBy { it.time }
         } else if (search.isEmpty() && filter.contains(oldFilterText) && filter.contains(
                 newFilterText
             )
         ) {
-            return data
+            return data.sortedBy { it.time }
         } else if (search.isNotEmpty() && filter.contains(oldFilterText) && !filter.contains(
                 newFilterText
             )
         ) {
-            return data.filter { remainder ->
-                remainder.title.contains(
+            return data.filter {
+                it.title.contains(
                     search
-                ) && remainder.time < System.currentTimeMillis()
-            }
+                ) && it.time < System.currentTimeMillis()
+            }.sortedBy { it.time }
         } else if (search.isNotEmpty() && !filter.contains(oldFilterText) && filter.contains(
                 newFilterText
             )
         ) {
-
-            return data.filter { remainder ->
-                remainder.title.contains(
+            return data.filter {
+                it.title.contains(
                     search
-                ) && remainder.time > System.currentTimeMillis()
-            }
+                ) && it.time > System.currentTimeMillis()
+            }.sortedBy { it.time }
         } else if (search.isEmpty() && filter.contains(oldFilterText) && !filter.contains(
                 newFilterText
             )
@@ -165,7 +163,7 @@ fun Remainder(context: Context) {
         ) {
             return getFutureRemainders()
         } else {
-            return data
+            return data.sortedBy { it.time }
         }
     }
 
