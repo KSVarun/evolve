@@ -428,11 +428,13 @@ fun Remainder(context: Context) {
             ) {
                 if (search.isNotEmpty() && resultRemainders.value.isEmpty()) {
                     Text(
-                        text = "Empty results, please refine your search!", fontSize = 25.sp
+                        text = "No remainders, please refine your search or filter!", fontSize = 25.sp
                     )
+                    return
                 }
                 if (resultRemainders.value.isEmpty()) {
                     Text(text = "No remainders!", fontSize = 25.sp)
+                    return
                 } else {
                     resultRemainders.value.forEachIndexed { _, remainder ->
                         Row(
