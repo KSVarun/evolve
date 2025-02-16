@@ -60,6 +60,7 @@ import androidx.work.WorkManager
 import com.example.evol.constants.newFilterText
 import com.example.evol.constants.oldFilterText
 import com.example.evol.entity.Remainder
+import com.example.evol.utils.checkForNotificationPermission
 import com.example.evol.utils.convertDateTimeToMillis
 import com.example.evol.utils.convertMillisToDateTime
 import com.example.evol.utils.getCurrentDate
@@ -421,87 +422,97 @@ fun Remainder(context: Context) {
                     Text("Future")
                 }
             }
-            Column(
+             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
             ) {
-                if (search.isNotEmpty() && resultRemainders.value.isEmpty()) {
-                    Text(
-                        text = "No remainders, please refine your search or filter!", fontSize = 25.sp
-                    )
-                    return
-                }
-                if (resultRemainders.value.isEmpty()) {
-                    Text(text = "No remainders!", fontSize = 25.sp)
-                    return
-                } else {
-                    resultRemainders.value.forEachIndexed { _, remainder ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (System.currentTimeMillis() < remainder.time) {
-                                        Color.Transparent
-                                    } else {
-                                        Color.Gray
-                                    }
-                                )
-                                .border(
-                                    1.dp, if (System.currentTimeMillis() < remainder.time) {
-                                        hashCodeToColor("#4999e9".toColorInt())
-                                    } else {
-                                        Color.Gray
-                                    }, shape = RoundedCornerShape(8.dp)
-                                )
-                                .padding(10.dp)
+                when {
+                    search.isNotEmpty() && resultRemainders.value.isEmpty() -> {
+                        Text(
+                            text = "No remainders, please refine your search or filter!",
+                            fontSize = 25.sp
+                        )
 
-                        ) {
-                            Column {
-                                Text(text = remainder.title, fontSize = 25.sp)
-                                Text(text = remainder.description)
-                                Text(
-                                    text = convertMillisToDateTime(
-                                        remainder.time, "dd/MM/yyyy HH:mm"
-                                    )
-                                )
-                                Row {
-                                    Button(onClick = {
-                                        focusManager.clearFocus()
-                                        if (remainder.workerId !== null) {
-                                            WorkManager.getInstance(context)
-                                                .cancelWorkById(remainder.workerId!!)
+                    }
+
+                    resultRemainders.value.isEmpty() -> {
+                        Text(text = "No remainders!", fontSize = 25.sp)
+                    }
+
+                    else -> {
+                        resultRemainders.value.forEachIndexed { _, remainder ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (System.currentTimeMillis() < remainder.time) {
+                                            Color.Transparent
+                                        } else {
+                                            Color.Gray
                                         }
-                                        remainderViewModal.deleteRemainderFromDB(remainder.id)
-                                        recomputeResultRemainders(remainderData)
-                                    }, modifier = Modifier.padding(end = 10.dp)) {
-                                        Icon(
-                                            imageVector = Icons.Default.Delete,
-                                            contentDescription = "Delete",
-                                            modifier = Modifier.size(15.dp)
+                                    )
+                                    .border(
+                                        1.dp, if (System.currentTimeMillis() < remainder.time) {
+                                            hashCodeToColor("#4999e9".toColorInt())
+                                        } else {
+                                            Color.Gray
+                                        }, shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(10.dp)
+
+                            ) {
+                                Column {
+                                    Text(text = remainder.title, fontSize = 25.sp)
+                                    Text(text = remainder.description)
+                                    Text(
+                                        text = convertMillisToDateTime(
+                                            remainder.time, "dd/MM/yyyy HH:mm"
                                         )
-                                    }
-                                    Button(onClick = {
-                                        focusManager.clearFocus()
-                                        showDialog.value = true
-                                        editingRemainder.value = remainder
-                                        title = remainder.title
-                                        description = remainder.description
-                                        date = convertMillisToDateTime(remainder.time, "dd/MM/yyyy")
-                                        hourValue = convertMillisToDateTime(remainder.time, "HH")
-                                        minuteValue = convertMillisToDateTime(remainder.time, "mm")
-                                    }) {
-                                        Icon(
-                                            imageVector = Icons.Default.Edit,
-                                            contentDescription = "Edit",
-                                            modifier = Modifier.size(15.dp)
-                                        )
+                                    )
+                                    Row {
+                                        Button(onClick = {
+                                            focusManager.clearFocus()
+                                            if (remainder.workerId !== null) {
+                                                WorkManager.getInstance(context)
+                                                    .cancelWorkById(remainder.workerId!!)
+                                            }
+                                            remainderViewModal.deleteRemainderFromDB(remainder.id)
+                                            recomputeResultRemainders(remainderData)
+                                        }, modifier = Modifier.padding(end = 10.dp)) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Delete",
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                        }
+                                        Button(onClick = {
+                                            focusManager.clearFocus()
+                                            showDialog.value = true
+                                            editingRemainder.value = remainder
+                                            title = remainder.title
+                                            description = remainder.description
+                                            date = convertMillisToDateTime(
+                                                remainder.time,
+                                                "dd/MM/yyyy"
+                                            )
+                                            hourValue =
+                                                convertMillisToDateTime(remainder.time, "HH")
+                                            minuteValue =
+                                                convertMillisToDateTime(remainder.time, "mm")
+                                        }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Edit,
+                                                contentDescription = "Edit",
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
 
@@ -509,8 +520,14 @@ fun Remainder(context: Context) {
         }
         Button(
             onClick = {
-                focusManager.clearFocus()
-                showDialog.value = true
+                if(checkForNotificationPermission(context)){
+                    focusManager.clearFocus()
+                    showDialog.value = true
+                }else {
+                    Toast.makeText(
+                        context, "Please allow notification permission in app settings", Toast.LENGTH_SHORT
+                    ).show()
+                }
             },
             modifier = Modifier
                 .size(80.dp)
