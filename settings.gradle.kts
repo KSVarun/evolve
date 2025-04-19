@@ -20,4 +20,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Evol"
-include(":app")
+include(":app",":wear")
