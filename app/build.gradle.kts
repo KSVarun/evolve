@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.evol"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -58,6 +58,7 @@ dependencies {
     ksp("androidx.room:room-compiler:$room_version")
 
     implementation("androidx.work:work-runtime-ktx:2.8.1")
+    implementation(libs.androidx.compose.runtime.runtime.livedata)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
