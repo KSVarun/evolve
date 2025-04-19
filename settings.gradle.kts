@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Evol"
 include(":app",":wear")
+include(":wear:evol")
