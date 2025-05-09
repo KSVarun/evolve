@@ -2,8 +2,6 @@ package com.example.evol.ui.components
 
 import android.app.Application
 import android.content.Context
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +25,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,16 +43,42 @@ import com.example.evol.entity.Consistency
 import com.example.evol.utils.hashCodeToColor
 import com.example.evol.viewModel.TrackerViewModel
 import com.example.evol.viewModelFactory.TrackerViewModelFactory
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun Tracker(context: Context) {
     val trackerViewModal: TrackerViewModel =
         viewModel(factory = TrackerViewModelFactory(context.applicationContext as Application))
     val scrollState = rememberScrollState()
+    var lastButtonClicked by remember { mutableStateOf(false) }
+    var shouldCallLastAction by remember { mutableStateOf(false) }
 
+    fun debouncedSaveAPICall() {
+        if (!trackerViewModal.loading.value) {
+            trackerViewModal.updateTrackerDataAPI()
+        } else {
+            shouldCallLastAction = true
+        }
+    }
 
+    LaunchedEffect(lastButtonClicked) {
+        if (lastButtonClicked) {
+            delay(1000)
+            if (isActive) {
+                debouncedSaveAPICall()
+            }
+            lastButtonClicked = false
+        }
+    }
+
+    LaunchedEffect(trackerViewModal.loading.value) {
+        if (!trackerViewModal.loading.value && shouldCallLastAction) {
+            trackerViewModal.updateTrackerDataAPI()
+            shouldCallLastAction = false
+        }
+    }
 
     fun renderConsistentData(data: Consistency?): MutableList<String> {
         val returnData = mutableListOf<String>()
@@ -99,6 +128,7 @@ fun Tracker(context: Context) {
                     Button(
                         onClick = {
                             trackerViewModal.decrementValue(index)
+                            lastButtonClicked = true
                         },
                         enabled = data.value > 0,
                         modifier = Modifier
@@ -116,7 +146,7 @@ fun Tracker(context: Context) {
                     Box(
                         modifier = Modifier
                             .size(50.dp)
-                            .padding(start=10.dp),
+                            .padding(start = 10.dp),
                         contentAlignment = Alignment.Center
 
                     ) {
@@ -145,7 +175,8 @@ fun Tracker(context: Context) {
                         )
                     }
                     Box(modifier = Modifier
-                        .size(50.dp).padding(end=10.dp),
+                        .size(50.dp)
+                        .padding(end = 10.dp),
                             contentAlignment = Alignment.Center) {
                         Text(
                             text = consistentData[1], color = if (consistentData[1].toInt() > 0) {
@@ -159,6 +190,7 @@ fun Tracker(context: Context) {
                     Button(
                         onClick = {
                             trackerViewModal.incrementValue(index, data.item ?: "")
+                            lastButtonClicked = true
                         },
                         modifier = Modifier
                             .padding(end = 10.dp)
