@@ -9,7 +9,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-@RequiresApi(Build.VERSION_CODES.O)
+
 fun getCurrentDate(): String {
     val currentDate = LocalDate.now()
     val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -23,7 +23,7 @@ fun getValueInTwoDigits(input:Int):String{
     return input.toString()
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
+
 fun getDefaultHourToShow():String{
     val currentHour = LocalTime.now().hour
     if(currentHour<23){
@@ -32,15 +32,22 @@ fun getDefaultHourToShow():String{
     return getValueInTwoDigits(currentHour)
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
-fun getPreviousNDate(previous:Long):String{
-    val currentDate = LocalDate.now()
-    currentDate.minusDays(previous)
+
+fun getPreviousNDate(inputDate:String,previous:Long):String{
     val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-    return currentDate.format(formatter)
+    val currentDate = LocalDate.parse(inputDate, formatter)
+    val updatedDate = currentDate.minusDays(previous)
+    return updatedDate.format(formatter)
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
+fun getNextNDate(inputDate:String,next:Long):String{
+    val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val currentDate = LocalDate.parse(inputDate, formatter)
+    val updatedDate = currentDate.plusDays(next)
+    return updatedDate.format(formatter)
+}
+
+
 fun convertDateTimeToMillis(dateString: String, timeString: String): Long {
     val dateTimeString = "$dateString $timeString"
     val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
@@ -48,7 +55,7 @@ fun convertDateTimeToMillis(dateString: String, timeString: String): Long {
     return localDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
+
 fun convertMillisToDateTime(millis:Long, pattern:String): String {
     val formatter = DateTimeFormatter.ofPattern(pattern).withZone(ZoneId.systemDefault())
     return formatter.format(Instant.ofEpochMilli(millis))

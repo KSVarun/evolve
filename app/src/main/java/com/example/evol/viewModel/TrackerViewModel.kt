@@ -2,9 +2,7 @@ package com.example.evol.viewModel
 
 import com.example.evol.database.AppDatabase
 import android.app.Application
-import android.os.Build
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
@@ -19,13 +17,14 @@ import com.example.evol.entity.Tracker
 import com.example.evol.service.ApiClient
 import com.example.evol.service.UpdateTrackerRequestBody
 import com.example.evol.utils.getCurrentDate
+import com.example.evol.utils.getNextNDate
+import com.example.evol.utils.getPreviousNDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.internal.toImmutableList
 import java.io.IOException
 
 
-@RequiresApi(Build.VERSION_CODES.O)
 class TrackerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = Room.databaseBuilder(
@@ -36,32 +35,33 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
     private val trackerDAO = db.trackerDAO()
     val trackerData = mutableStateListOf<Tracker>()
-    val configData = mutableStateOf<Map<String, Map<String, String>>?>(null)
-    val loading = mutableStateOf(false)
+    private val configData = mutableStateOf<Map<String, Map<String, String>>?>(null)
+    var loading = mutableStateOf(false)
     val consistentData = mutableMapOf<String, Consistency>()
-
-
+    var selectedDate = mutableStateOf(getCurrentDate())
+    var initialAPICallMade = mutableStateOf(false)
+    var apiData = mutableStateOf<TrackerAPIGetResponse?>(null)
 
     init {
         loadTrackersFromApi()
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun loadTrackersFromApi() {
+    private fun loadTrackersFromApi() {
+        if(!initialAPICallMade.value){
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val apiResponse = ApiClient.getTrackerApiService.fetchTrackers()
-                val currentDatesData = apiResponse.track[getCurrentDate()]
-                configData.value=apiResponse.configurations
+                apiData.value = ApiClient.getTrackerApiService.fetchTrackers()
+                val currentDatesData = apiData.value!!.track[selectedDate.value]
+                configData.value= apiData.value!!.configurations
 
                 if (currentDatesData != null) {
-                    getConsistentData(apiResponse, true)
+                    getConsistentData(apiData.value!!, true)
                     trackerData.clear()
                     //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                     trackerDAO.deleteAll()
                     val convertedData = convertTrackerDataMapToList(currentDatesData).toMutableList()
-                    if(convertedData.size != apiResponse.configurations.keys.size) {
-                        apiResponse.configurations.keys.forEach { item ->
+                    if(convertedData.size != apiData.value!!.configurations.keys.size) {
+                        apiData.value!!.configurations.keys.forEach { item ->
                             if (currentDatesData[item] == null) {
                                 convertedData.add(Tracker(id = null, item = item, value = 0.0))
                             }
@@ -71,17 +71,18 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                     trackerData.addAll(convertedData)
                 }
                 if(currentDatesData==null){
-                    getConsistentData(apiResponse, false)
+                    getConsistentData(apiData.value!!, false)
                     trackerData.clear()
                     //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                     trackerDAO.deleteAll()
                     val convertedData:MutableList<Tracker> = mutableListOf()
-                    apiResponse.configurations.keys.forEach { item ->
+                    apiData.value!!.configurations.keys.forEach { item ->
                             convertedData.add(Tracker(id = null, item = item, value = 0.0))
                     }
                     trackerDAO.insertAll(convertedData)
                     trackerData.addAll(convertedData)
                 }
+                initialAPICallMade.value = true
             } catch (e: IOException) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
@@ -93,6 +94,47 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             } catch (e: Exception) {
                 println("error----")
                 e.printStackTrace()
+            }
+        }
+            }else{
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val currentDatesData = apiData.value!!.track[selectedDate.value]
+                    configData.value = apiData.value!!.configurations
+
+                    if (currentDatesData != null) {
+                        getConsistentData(apiData.value!!, true)
+                        trackerData.clear()
+                        //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
+                        trackerDAO.deleteAll()
+                        val convertedData =
+                            convertTrackerDataMapToList(currentDatesData).toMutableList()
+                        if (convertedData.size != apiData.value!!.configurations.keys.size) {
+                            apiData.value!!.configurations.keys.forEach { item ->
+                                if (currentDatesData[item] == null) {
+                                    convertedData.add(Tracker(id = null, item = item, value = 0.0))
+                                }
+                            }
+                        }
+                        trackerDAO.insertAll(convertedData)
+                        trackerData.addAll(convertedData)
+                    }
+                    if (currentDatesData == null) {
+                        getConsistentData(apiData.value!!, false)
+                        trackerData.clear()
+                        //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
+                        trackerDAO.deleteAll()
+                        val convertedData: MutableList<Tracker> = mutableListOf()
+                        apiData.value!!.configurations.keys.forEach { item ->
+                            convertedData.add(Tracker(id = null, item = item, value = 0.0))
+                        }
+                        trackerDAO.insertAll(convertedData)
+                        trackerData.addAll(convertedData)
+                    }
+                }catch (e: Exception) {
+                    println("error----")
+                    e.printStackTrace()
+                }
             }
         }
     }
@@ -175,6 +217,21 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                     0.0
                 })
             )
+        }
+    }
+
+    fun updateDate(incrementOrDecrement: String){
+        viewModelScope.launch {
+
+            if(incrementOrDecrement=== "increment"){
+                selectedDate.value=getNextNDate(selectedDate.value,1)
+                            }
+            if(incrementOrDecrement=== "decrement"){
+                selectedDate.value=getPreviousNDate(selectedDate.value,1)
+
+            }
+            consistentData.clear()
+            loadTrackersFromApi()
         }
     }
 

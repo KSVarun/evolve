@@ -46,7 +46,6 @@ import com.example.evol.viewModelFactory.TrackerViewModelFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
-
 @Composable
 fun Tracker(context: Context) {
     val trackerViewModal: TrackerViewModel =
@@ -80,6 +79,7 @@ fun Tracker(context: Context) {
         }
     }
 
+    //streak data, how long a task is done consistently and how long it's not done consistently
     fun renderConsistentData(data: Consistency?): MutableList<String> {
         val returnData = mutableListOf<String>()
         if (data == null) {
@@ -113,6 +113,52 @@ fun Tracker(context: Context) {
                 .fillMaxSize()
                 .verticalScroll(scrollState)
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth().padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ){
+                Button(
+                    onClick = {
+                        trackerViewModal.updateDate("decrement")
+                    },
+                    modifier = Modifier
+                        .padding(start = 10.dp)
+                        .size(20.dp)
+                        .wrapContentSize(Alignment.Center),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = hashCodeToColor("#4999e9".toColorInt())
+                    ),
+                ) {
+                    Text(text = "<", fontSize = 10.sp, color = Color.White)
+                }
+            Column (
+                modifier = Modifier
+                    .weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = trackerViewModal.selectedDate.value, color = Color.White
+                )
+            }
+                Button(
+                    onClick = {
+                        trackerViewModal.updateDate("increment")
+                    },
+//                    enabled = trackerViewModal.selectedDate.value < getCurrentDate(),
+                    modifier = Modifier
+                        .padding(end = 10.dp)
+                        .size(20.dp)
+                        .wrapContentSize(Alignment.Center),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = hashCodeToColor("#4999e9".toColorInt())
+                    ),
+                    ) {
+                    Text(text = ">", fontSize = 10.sp, color = Color.White)
+                }
+            }
             trackerViewModal.trackerData.forEachIndexed { index, data ->
                 val isLastItem = index == trackerViewModal.trackerData.lastIndex
                 val consistentData =
@@ -245,8 +291,5 @@ fun Tracker(context: Context) {
                 }
             }
         }
-
     }
-
-
 }
