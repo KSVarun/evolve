@@ -60,3 +60,10 @@ fun convertMillisToDateTime(millis:Long, pattern:String): String {
     val formatter = DateTimeFormatter.ofPattern(pattern).withZone(ZoneId.systemDefault())
     return formatter.format(Instant.ofEpochMilli(millis))
 }
+
+fun isSelectedDateLessThanCurrentData(selectedDate:String):Boolean{
+    val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val currentDate = LocalDate.now()
+    val selectedLocalDate = LocalDate.parse(selectedDate, formatter)
+    return selectedLocalDate.isBefore(currentDate)
+}

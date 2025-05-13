@@ -3,6 +3,7 @@ package com.example.evol.ui.components
 import android.app.Application
 import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -41,6 +43,7 @@ import androidx.core.graphics.toColorInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evol.entity.Consistency
 import com.example.evol.utils.hashCodeToColor
+import com.example.evol.utils.isSelectedDateLessThanCurrentData
 import com.example.evol.viewModel.TrackerViewModel
 import com.example.evol.viewModelFactory.TrackerViewModelFactory
 import kotlinx.coroutines.delay
@@ -105,60 +108,82 @@ fun Tracker(context: Context) {
 
     Box(
         modifier = Modifier
-            .fillMaxSize()
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(start = 8.dp, end = 8.dp, top = 8.dp)
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth().padding(bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ){
-                Button(
-                    onClick = {
-                        trackerViewModal.updateDate("decrement")
+            .fillMaxSize().pointerInput(Unit) {
+                var dragStartX = 0f
+                var dragEndX = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { offset ->
+                        dragStartX = offset.x
                     },
-                    modifier = Modifier
-                        .padding(start = 10.dp)
-                        .size(20.dp)
-                        .wrapContentSize(Alignment.Center),
-                    contentPadding = PaddingValues(0.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = hashCodeToColor("#4999e9".toColorInt())
-                    ),
-                ) {
-                    Text(text = "<", fontSize = 10.sp, color = Color.White)
+                    onDragEnd = {
+                        val dragAmount = dragEndX - dragStartX
+                        val swipeThreshold = 100
+
+                        if (dragAmount > swipeThreshold) {
+                            trackerViewModal.updateDate("decrement")
+                        } else if (dragAmount < -swipeThreshold && isSelectedDateLessThanCurrentData(trackerViewModal.selectedDate.value)) {
+                            trackerViewModal.updateDate("increment")
+                        }
+                    }
+                ) { change, _ ->
+                    change.consume()
+                    dragEndX = change.position.x
                 }
+            }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth().padding(top=4.dp,bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ){
+            Button(
+                onClick = {
+                    trackerViewModal.updateDate("decrement")
+                },
+                modifier = Modifier
+                    .padding(start = 10.dp)
+                    .size(20.dp)
+                    .wrapContentSize(Alignment.Center),
+                contentPadding = PaddingValues(0.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = hashCodeToColor("#4999e9".toColorInt())
+                ),
+            ) {
+                Text(text = "<", fontSize = 10.sp, color = Color.White)
+            }
             Column (
                 modifier = Modifier
                     .weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = trackerViewModal.selectedDate.value, color = Color.White
                 )
             }
-                Button(
-                    onClick = {
-                        trackerViewModal.updateDate("increment")
-                    },
-//                    enabled = trackerViewModal.selectedDate.value < getCurrentDate(),
-                    modifier = Modifier
-                        .padding(end = 10.dp)
-                        .size(20.dp)
-                        .wrapContentSize(Alignment.Center),
-                    contentPadding = PaddingValues(0.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = hashCodeToColor("#4999e9".toColorInt())
-                    ),
-                    ) {
-                    Text(text = ">", fontSize = 10.sp, color = Color.White)
-                }
+            Button(
+                onClick = {
+                    trackerViewModal.updateDate("increment")
+                },
+                enabled = isSelectedDateLessThanCurrentData(trackerViewModal.selectedDate.value),
+                modifier = Modifier
+                    .padding(end = 10.dp)
+                    .size(20.dp)
+                    .wrapContentSize(Alignment.Center),
+                contentPadding = PaddingValues(0.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = hashCodeToColor("#4999e9".toColorInt())
+                ),
+            ) {
+                Text(text = ">", fontSize = 10.sp, color = Color.White)
             }
+        }
+        Column(
+            modifier = Modifier
+                .padding(start = 8.dp, end = 8.dp, top = 28.dp)
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+        ) {
+
             trackerViewModal.trackerData.forEachIndexed { index, data ->
                 val isLastItem = index == trackerViewModal.trackerData.lastIndex
                 val consistentData =
