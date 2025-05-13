@@ -23,6 +23,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.internal.toImmutableList
 import java.io.IOException
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 
 class TrackerViewModel(application: Application) : AndroidViewModel(application) {
@@ -39,8 +41,8 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     var loading = mutableStateOf(false)
     val consistentData = mutableMapOf<String, Consistency>()
     var selectedDate = mutableStateOf(getCurrentDate())
-    var initialAPICallMade = mutableStateOf(false)
-    var apiData = mutableStateOf<TrackerAPIGetResponse?>(null)
+    private var initialAPICallMade = mutableStateOf(false)
+    private var apiData = mutableStateOf<TrackerAPIGetResponse?>(null)
 
     init {
         loadTrackersFromApi()
@@ -54,8 +56,15 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                 val currentDatesData = apiData.value!!.track[selectedDate.value]
                 configData.value= apiData.value!!.configurations
 
+                val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                val sortedDates = apiData.value!!.track.keys.sortedWith(compareBy { LocalDate.parse(it, formatter) })
+                val selectedDateIndex = sortedDates.indexOf(selectedDate.value)
+                val filteredTrackData = if(currentDatesData== null) apiData.value!!.track else sortedDates
+                    .take(selectedDateIndex + 1)
+                    .associateWith { date -> apiData.value!!.track[date] ?: emptyMap() }
+
                 if (currentDatesData != null) {
-                    getConsistentData(apiData.value!!, true)
+                    getConsistentData(filteredTrackData, true)
                     trackerData.clear()
                     //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                     trackerDAO.deleteAll()
@@ -71,7 +80,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                     trackerData.addAll(convertedData)
                 }
                 if(currentDatesData==null){
-                    getConsistentData(apiData.value!!, false)
+                    getConsistentData(filteredTrackData, false)
                     trackerData.clear()
                     //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                     trackerDAO.deleteAll()
@@ -99,11 +108,19 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             }else{
             viewModelScope.launch(Dispatchers.IO) {
                 try {
+
                     val currentDatesData = apiData.value!!.track[selectedDate.value]
                     configData.value = apiData.value!!.configurations
 
+                    val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                    val sortedDates = apiData.value!!.track.keys.sortedWith(compareBy { LocalDate.parse(it, formatter) })
+                    val selectedDateIndex = sortedDates.indexOf(selectedDate.value)
+                    val filteredTrackData = if(currentDatesData== null) apiData.value!!.track else sortedDates
+                        .take(selectedDateIndex + 1)
+                        .associateWith { date -> apiData.value!!.track[date] ?: emptyMap() }
+
                     if (currentDatesData != null) {
-                        getConsistentData(apiData.value!!, true)
+                        getConsistentData(filteredTrackData, true)
                         trackerData.clear()
                         //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                         trackerDAO.deleteAll()
@@ -120,7 +137,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                         trackerData.addAll(convertedData)
                     }
                     if (currentDatesData == null) {
-                        getConsistentData(apiData.value!!, false)
+                        getConsistentData(filteredTrackData, false)
                         trackerData.clear()
                         //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                         trackerDAO.deleteAll()
@@ -139,10 +156,10 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private fun getConsistentData(apiResponse: TrackerAPIGetResponse, currentDaysData:Boolean){
+    private fun getConsistentData(trackData: Map<String, Map<String, String>>, currentDaysData:Boolean){
         var data = mutableListOf<Map<String,String>>()
 
-        apiResponse.track.forEach { (t, u) ->
+        trackData.forEach { (t, u) ->
             data.add(u)
 
         }
@@ -239,7 +256,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             try {
                 loading.value=true
-                val requestData = mutableListOf(getCurrentDate())
+                val requestData = mutableListOf(selectedDate.value)
                 trackerData.forEach { data ->
                     requestData.add(data.value.toString())
                 }

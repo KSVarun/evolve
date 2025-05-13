@@ -64,7 +64,7 @@ fun Tracker(context: Context) {
 
     LaunchedEffect(lastButtonClicked) {
         if (lastButtonClicked) {
-            delay(1000)
+            delay(1500)
             if (isActive) {
                 debouncedSaveAPICall()
             }
