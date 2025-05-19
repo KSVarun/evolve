@@ -38,38 +38,44 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     private val trackerDAO = db.trackerDAO()
     val trackerData = mutableStateListOf<Tracker>()
     private val configData = mutableStateOf<Map<String, Map<String, String>>?>(null)
-    var loading = mutableStateOf(false)
+    var updateAPICallIsLoading = mutableStateOf(false)
     val consistentData = mutableMapOf<String, Consistency>()
     var selectedDate = mutableStateOf(getCurrentDate())
     private var initialAPICallMade = mutableStateOf(false)
     private var apiData = mutableStateOf<TrackerAPIGetResponse?>(null)
+    val dataFetchIsLoading = mutableStateOf(false)
 
     init {
         loadTrackersFromApi()
     }
 
-    private fun loadTrackersFromApi() {
-        if(!initialAPICallMade.value){
+    private fun processAPIResponse() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                apiData.value = ApiClient.getTrackerApiService.fetchTrackers()
-                val currentDatesData = apiData.value!!.track[selectedDate.value]
-                configData.value= apiData.value!!.configurations
+                val currentDatesData =  apiData.value!!.track[selectedDate.value]
+                configData.value = apiData.value!!.configurations
 
                 val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-                val sortedDates = apiData.value!!.track.keys.sortedWith(compareBy { LocalDate.parse(it, formatter) })
+                val sortedDates = apiData.value!!.track.keys.sortedWith(compareBy {
+                    LocalDate.parse(
+                        it,
+                        formatter
+                    )
+                })
                 val selectedDateIndex = sortedDates.indexOf(selectedDate.value)
-                val filteredTrackData = if(currentDatesData== null) apiData.value!!.track else sortedDates
-                    .take(selectedDateIndex + 1)
-                    .associateWith { date -> apiData.value!!.track[date] ?: emptyMap() }
+                val filteredTrackData =
+                    if (currentDatesData == null) apiData.value!!.track else sortedDates
+                        .take(selectedDateIndex + 1)
+                        .associateWith { date -> apiData.value!!.track[date] ?: emptyMap() }
 
                 if (currentDatesData != null) {
                     getConsistentData(filteredTrackData, true)
                     trackerData.clear()
                     //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                     trackerDAO.deleteAll()
-                    val convertedData = convertTrackerDataMapToList(currentDatesData).toMutableList()
-                    if(convertedData.size != apiData.value!!.configurations.keys.size) {
+                    val convertedData =
+                        convertTrackerDataMapToList(currentDatesData).toMutableList()
+                    if (convertedData.size != apiData.value!!.configurations.keys.size) {
                         apiData.value!!.configurations.keys.forEach { item ->
                             if (currentDatesData[item] == null) {
                                 convertedData.add(Tracker(id = null, item = item, value = 0.0))
@@ -79,19 +85,33 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                     trackerDAO.insertAll(convertedData)
                     trackerData.addAll(convertedData)
                 }
-                if(currentDatesData==null){
+                if (currentDatesData == null) {
                     getConsistentData(filteredTrackData, false)
                     trackerData.clear()
                     //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                     trackerDAO.deleteAll()
-                    val convertedData:MutableList<Tracker> = mutableListOf()
+                    val convertedData: MutableList<Tracker> = mutableListOf()
                     apiData.value!!.configurations.keys.forEach { item ->
-                            convertedData.add(Tracker(id = null, item = item, value = 0.0))
+                        convertedData.add(Tracker(id = null, item = item, value = 0.0))
                     }
                     trackerDAO.insertAll(convertedData)
                     trackerData.addAll(convertedData)
                 }
-                initialAPICallMade.value = true
+            } catch (e: Exception) {
+                println("error----")
+                e.printStackTrace()
+            }
+
+        }
+    }
+
+    fun forceLoadDataOnPullToRefresh() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                dataFetchIsLoading.value = true
+                apiData.value = ApiClient.getTrackerApiService.fetchTrackers()
+                dataFetchIsLoading.value = false
+                processAPIResponse()
             } catch (e: IOException) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
@@ -105,76 +125,59 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                 e.printStackTrace()
             }
         }
-            }else{
+    }
+
+    private fun loadTrackersFromApi() {
+        if (!initialAPICallMade.value) {
             viewModelScope.launch(Dispatchers.IO) {
                 try {
-
-                    val currentDatesData = apiData.value!!.track[selectedDate.value]
-                    configData.value = apiData.value!!.configurations
-
-                    val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-                    val sortedDates = apiData.value!!.track.keys.sortedWith(compareBy { LocalDate.parse(it, formatter) })
-                    val selectedDateIndex = sortedDates.indexOf(selectedDate.value)
-                    val filteredTrackData = if(currentDatesData== null) apiData.value!!.track else sortedDates
-                        .take(selectedDateIndex + 1)
-                        .associateWith { date -> apiData.value!!.track[date] ?: emptyMap() }
-
-                    if (currentDatesData != null) {
-                        getConsistentData(filteredTrackData, true)
-                        trackerData.clear()
-                        //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
-                        trackerDAO.deleteAll()
-                        val convertedData =
-                            convertTrackerDataMapToList(currentDatesData).toMutableList()
-                        if (convertedData.size != apiData.value!!.configurations.keys.size) {
-                            apiData.value!!.configurations.keys.forEach { item ->
-                                if (currentDatesData[item] == null) {
-                                    convertedData.add(Tracker(id = null, item = item, value = 0.0))
-                                }
-                            }
-                        }
-                        trackerDAO.insertAll(convertedData)
-                        trackerData.addAll(convertedData)
+                    apiData.value = ApiClient.getTrackerApiService.fetchTrackers()
+                    processAPIResponse()
+                    initialAPICallMade.value = true
+                } catch (e: IOException) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            getApplication(),
+                            "Network error. Please try again.",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
-                    if (currentDatesData == null) {
-                        getConsistentData(filteredTrackData, false)
-                        trackerData.clear()
-                        //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
-                        trackerDAO.deleteAll()
-                        val convertedData: MutableList<Tracker> = mutableListOf()
-                        apiData.value!!.configurations.keys.forEach { item ->
-                            convertedData.add(Tracker(id = null, item = item, value = 0.0))
-                        }
-                        trackerDAO.insertAll(convertedData)
-                        trackerData.addAll(convertedData)
-                    }
-                }catch (e: Exception) {
+                } catch (e: Exception) {
                     println("error----")
                     e.printStackTrace()
                 }
             }
+        } else {
+            viewModelScope.launch(Dispatchers.IO) {
+                processAPIResponse()
+            }
         }
     }
 
-    private fun getConsistentData(trackData: Map<String, Map<String, String>>, currentDaysData:Boolean){
-        var data = mutableListOf<Map<String,String>>()
+    private fun getConsistentData(
+        trackData: Map<String, Map<String, String>>,
+        currentDaysData: Boolean
+    ) {
+        var data = mutableListOf<Map<String, String>>()
 
         trackData.forEach { (t, u) ->
             data.add(u)
 
         }
         data = data.reversed().toMutableList()
-        if(currentDaysData){data.removeAt(0)}
+        if (currentDaysData) {
+            data.removeAt(0)
+        }
 
 
         data.forEach { u ->
             u.forEach label@{ (t, u) ->
                 var currentData = consistentData[t]
-                if(currentData==null){
+                if (currentData == null) {
                     currentData = Consistency(consistentSince = 0, brokenSince = 0)
                 }
-                if(u.isNotEmpty() && u.toDouble()>0){
-                    if(currentData.brokenSince == 0) {
+                if (u.isNotEmpty() && u.toDouble() > 0) {
+                    if (currentData.brokenSince == 0) {
                         if (currentData.consistentSince == 0) {
                             consistentData[t] = Consistency(
                                 consistentSince = 1,
@@ -187,17 +190,16 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                                 brokenSince = 0
                             )
                         }
-                    }else if(currentData.brokenSince == 1 && currentData.consistentSince > 0){
+                    } else if (currentData.brokenSince == 1 && currentData.consistentSince > 0) {
                         return@label
-                    }
-                    else{
+                    } else {
                         consistentData[t] = Consistency(
                             consistentSince = 1,
                             brokenSince = currentData.brokenSince
                         )
                     }
-                }else if(u.isNotEmpty() && u.toDouble()==0.0){
-                    if(currentData.consistentSince==0) {
+                } else if (u.isNotEmpty() && u.toDouble() == 0.0) {
+                    if (currentData.consistentSince == 0) {
                         if (currentData.brokenSince == 0) {
                             consistentData[t] = Consistency(
                                 consistentSince = 0,
@@ -209,9 +211,9 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                                 brokenSince = currentData.brokenSince + 1
                             )
                         }
-                    }else if(currentData.consistentSince == 1 && currentData.brokenSince > 0){
+                    } else if (currentData.consistentSince == 1 && currentData.brokenSince > 0) {
                         return@label
-                    }else{
+                    } else {
                         consistentData[t] = Consistency(
                             consistentSince = currentData.consistentSince,
                             brokenSince = 1
@@ -237,14 +239,14 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun updateDate(incrementOrDecrement: String){
+    fun updateDate(incrementOrDecrement: String) {
         viewModelScope.launch {
 
-            if(incrementOrDecrement=== "increment"){
-                selectedDate.value=getNextNDate(selectedDate.value,1)
-                            }
-            if(incrementOrDecrement=== "decrement"){
-                selectedDate.value=getPreviousNDate(selectedDate.value,1)
+            if (incrementOrDecrement === "increment") {
+                selectedDate.value = getNextNDate(selectedDate.value, 1)
+            }
+            if (incrementOrDecrement === "decrement") {
+                selectedDate.value = getPreviousNDate(selectedDate.value, 1)
 
             }
             consistentData.clear()
@@ -255,7 +257,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     fun updateTrackerDataAPI() {
         viewModelScope.launch {
             try {
-                loading.value=true
+                updateAPICallIsLoading.value = true
                 val requestData = mutableListOf(selectedDate.value)
                 trackerData.forEach { data ->
                     requestData.add(data.value.toString())
@@ -263,20 +265,24 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                 val response = ApiClient.updateTrackerApiService.updateTrackers(
                     UpdateTrackerRequestBody(values = requestData.toImmutableList())
                 )
-                loading.value=false
+                updateAPICallIsLoading.value = false
                 withContext(Dispatchers.Main) {
                     Toast.makeText(getApplication(), response.message, Toast.LENGTH_SHORT).show()
                 }
 
             } catch (e: java.lang.Exception) {
-                loading.value=false
-                Toast.makeText(getApplication(), "Something happened with API call, please retry", Toast.LENGTH_SHORT).show()
+                updateAPICallIsLoading.value = false
+                Toast.makeText(
+                    getApplication(),
+                    "Something happened with API call, please retry",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
 
         }
     }
 
-    fun incrementValue(index: Int, item:String) {
+    fun incrementValue(index: Int, item: String) {
         val incrementValue = configData.value?.get(item)?.get(ThresholdIncrement)?.toInt() ?: 1
         val data = trackerData[index]
         val updatedData = data.copy(value = data.value.plus(incrementValue))
