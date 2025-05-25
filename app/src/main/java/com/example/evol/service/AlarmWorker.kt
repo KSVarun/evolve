@@ -2,20 +2,18 @@ package com.example.evol.service
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
 import androidx.core.app.NotificationCompat
-import androidx.work.Worker
-import androidx.work.WorkerParameters
 import com.example.evol.R
 
-class NotificationWorker(context: Context, workerParams: WorkerParameters) : Worker(context, workerParams) {
-    override fun doWork(): Result {
-        val title = inputData.getString("title") ?: "Default Title"
-        val message = inputData.getString("message") ?: "Default Message"
-        showNotification(applicationContext, title, message)
-        return Result.success()
+class AlarmWorker : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val title = intent.getStringExtra("title") ?: "Reminder"
+        val message = intent.getStringExtra("message") ?: "Time for your task!"
+        showNotification(context, title, message)
     }
-
     private fun showNotification(context: Context, title: String, message: String) {
         val channelId = "notify_channel"
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

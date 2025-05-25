@@ -282,6 +282,20 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private fun updateApiData(currentTrackerDataList: List<Tracker>){
+        apiData.value?.let { currentApiData ->
+            val newTrackForSelectedDate = currentTrackerDataList.associate { tracker ->
+                tracker.item to tracker.value.toString()
+            }
+
+            val mutableTrack = currentApiData.track.toMutableMap()
+            mutableTrack[selectedDate.value] = newTrackForSelectedDate
+            apiData.value = currentApiData.copy(track = mutableTrack.toMap())
+
+            println("Updated apiData for date ${selectedDate.value} using the current trackerData.")
+        } ?: println("Warning: apiData.value is null. Cannot update.")
+    }
+
     fun incrementValue(index: Int, item: String) {
         val incrementValue = configData.value?.get(item)?.get(ThresholdIncrement)?.toInt() ?: 1
         val data = trackerData[index]
@@ -289,6 +303,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             trackerDAO.update(updatedData)
             trackerData[index] = updatedData
+            updateApiData(trackerData)
         }
     }
 
@@ -298,6 +313,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             trackerDAO.update(updatedData)
             trackerData[index] = updatedData
+            updateApiData(trackerData)
         }
     }
 }

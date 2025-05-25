@@ -53,7 +53,6 @@ data class Task(
 )
 
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun Timer(context: Context) {
     val task = Task(
@@ -193,18 +192,16 @@ fun Timer(context: Context) {
 
 
 fun createNotificationChannel(context: Context) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        val channel = NotificationChannel(
-            "timer_channel",
-            "Timer Notifications",
-            NotificationManager.IMPORTANCE_DEFAULT
-        ).apply {
-            description = "Channel for timer notifications"
-        }
-        val manager: NotificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.createNotificationChannel(channel)
+    val channel = NotificationChannel(
+        "timer_channel",
+        "Timer Notifications",
+        NotificationManager.IMPORTANCE_DEFAULT
+    ).apply {
+        description = "Channel for timer notifications"
     }
+    val manager: NotificationManager =
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    manager.createNotificationChannel(channel)
 }
 
 // Function to show a notification

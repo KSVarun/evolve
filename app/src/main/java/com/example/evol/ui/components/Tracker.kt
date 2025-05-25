@@ -67,8 +67,6 @@ fun Tracker(context: Context) {
     val pullToRefreshState = rememberPullToRefreshState()
     val coroutineScope = rememberCoroutineScope()
 
-    println(trackerViewModal.dataFetchIsLoading.value)
-
     fun debouncedSaveAPICall() {
         if (!trackerViewModal.updateAPICallIsLoading.value) {
             trackerViewModal.updateTrackerDataAPI()
@@ -94,7 +92,6 @@ fun Tracker(context: Context) {
         }
     }
 
-
     //streak data, how long a task is done consistently and how long it's not done consistently
     fun renderConsistentData(data: Consistency?): MutableList<String> {
         val returnData = mutableListOf<String>()
@@ -118,7 +115,6 @@ fun Tracker(context: Context) {
         }
         return returnData
     }
-
 
     Box(
         modifier = Modifier
