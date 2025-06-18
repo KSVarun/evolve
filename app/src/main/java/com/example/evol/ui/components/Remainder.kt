@@ -4,9 +4,7 @@ import android.app.Application
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
-import android.os.Build
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -74,7 +72,6 @@ import java.util.Calendar
 import java.util.UUID
 
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun Remainder(context: Context) {
 

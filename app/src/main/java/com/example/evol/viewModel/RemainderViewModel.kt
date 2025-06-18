@@ -13,7 +13,6 @@ import com.example.evol.entity.Remainder
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-@RequiresApi(Build.VERSION_CODES.O)
 class RemainderViewModel(application: Application) : AndroidViewModel(application) {
     private val db = Room.databaseBuilder(
         application,

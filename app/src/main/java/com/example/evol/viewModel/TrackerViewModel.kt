@@ -6,7 +6,6 @@ import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
-
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.room.Room
@@ -26,6 +25,11 @@ import java.io.IOException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
+//
+/*
+
+
+ */
 
 class TrackerViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -48,6 +52,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     init {
         loadTrackersFromApi()
     }
+    
 
     private fun processAPIResponse() {
         viewModelScope.launch(Dispatchers.IO) {
