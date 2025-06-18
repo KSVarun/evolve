@@ -10,7 +10,7 @@ data class Remainder(
     val title: String,
     val description: String,
     val time: Long,
-    var workerId: UUID?
+    var workerId: Int?
 )
 
 

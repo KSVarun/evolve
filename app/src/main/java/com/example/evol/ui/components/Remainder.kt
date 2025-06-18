@@ -58,6 +58,7 @@ import androidx.work.WorkManager
 import com.example.evol.constants.newFilterText
 import com.example.evol.constants.oldFilterText
 import com.example.evol.entity.Remainder
+import com.example.evol.utils.cancelAlarm
 import com.example.evol.utils.checkForNotificationPermission
 import com.example.evol.utils.convertDateTimeToMillis
 import com.example.evol.utils.convertMillisToDateTime
@@ -111,9 +112,13 @@ fun Remainder(context: Context) {
     val filter = remember {
         mutableStateListOf(newFilterText)
     }
-    val calendar = Calendar.getInstance()
+    val calendar = Calendar.getInstance().apply {
+        timeInMillis = System.currentTimeMillis()
+    }
     calendar.set(Calendar.HOUR_OF_DAY, hourValue.toInt())
     calendar.set(Calendar.MINUTE, minuteValue.toInt())
+    calendar.set(Calendar.SECOND, 0)
+    calendar.set(Calendar.MILLISECOND,0)
     val editingRemainder: MutableState<Remainder?> = remember {
         mutableStateOf(null)
     }
@@ -182,27 +187,24 @@ fun Remainder(context: Context) {
     }
 
     fun saveClick() {
-        val dateTimeInMilli = convertDateTimeToMillis(
-            date, "$hourValue:$minuteValue"
-        )
         val remainder = Remainder(
             id = editingRemainder.value?.id ?: UUID.randomUUID(),
             title = title,
             description = description,
-            time = dateTimeInMilli,
+            time = calendar.timeInMillis,
             workerId = editingRemainder.value?.workerId
         )
         if (editingRemainder.value?.id !== null) {
             if (editingRemainder.value?.workerId !== null) {
                 editingRemainder.value!!.workerId?.let {
-                    WorkManager.getInstance(context).cancelWorkById(
+                    cancelAlarm(context,
                         it
                     )
                 }
             }
             val workerId = scheduleNotification(
                 context,
-                remainder.time - System.currentTimeMillis(),
+                calendar.timeInMillis,
                 remainder.title,
                 remainder.description
             )
@@ -217,7 +219,7 @@ fun Remainder(context: Context) {
         } else {
             val workerId = scheduleNotification(
                 context,
-                remainder.time - System.currentTimeMillis(),
+                calendar.timeInMillis,
                 remainder.title,
                 remainder.description
             )
@@ -303,8 +305,7 @@ fun Remainder(context: Context) {
     fun handleDeleteClick(remainder: Remainder){
         focusManager.clearFocus()
         if (remainder.workerId !== null) {
-            WorkManager.getInstance(context)
-                .cancelWorkById(remainder.workerId!!)
+            cancelAlarm(context,remainder.workerId!!)
         }
         remainderViewModal.deleteRemainderFromDB(remainder.id)
         recomputeResultRemainders(remainderData)

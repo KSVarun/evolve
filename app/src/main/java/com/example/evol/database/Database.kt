@@ -7,7 +7,7 @@ import com.example.evol.dao.RemainderDAO
 import com.example.evol.entity.Remainder
 import com.example.evol.entity.Tracker
 
-@Database(entities = [Tracker::class, Remainder::class], version = 7, exportSchema = false)
+@Database(entities = [Tracker::class, Remainder::class], version = 8, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun trackerDAO(): TrackerDAO
     abstract fun remainderDAO(): RemainderDAO

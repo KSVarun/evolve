@@ -9,28 +9,22 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
 import com.example.evol.service.AlarmWorker
-import com.example.evol.service.NotificationWorker
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 fun cancelAlarm(context: Context, reminderIdToCancel: Int) { // The unique ID of the reminder whose alarm you want to cancel
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    val intent = Intent(context, AlarmWorker::class.java).apply {
-        action = "ALARM_REMAINDER"
-    }
+    val intent = Intent(context, AlarmWorker::class.java)
 
     val pendingIntent = PendingIntent.getBroadcast(
         context,
         reminderIdToCancel,
         intent,
-        PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        PendingIntent.FLAG_IMMUTABLE
     )
 
     if (pendingIntent != null) {
@@ -42,49 +36,65 @@ fun cancelAlarm(context: Context, reminderIdToCancel: Int) { // The unique ID of
     }
 }
 
-fun scheduleNotificationUsingAlarmWorker(context: Context, duration: Long, title: String, message: String):Int{
+
+fun scheduleNotification(context: Context, duration: Long, title: String, message: String): Int {
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-    val intent = Intent(context, AlarmWorker::class.java).apply {
-        action = "ALARM_REMAINDER"
+    val alarmId = UUID.randomUUID().hashCode()
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // For API 31 and above
+        val testAlarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val res = testAlarmManager.canScheduleExactAlarms()
+        Log.d("ExactAlarmScheduler", res.toString())
+        if (!testAlarmManager.canScheduleExactAlarms()) {
+            Toast.makeText(context, "Please grant 'Alarms & reminders' permission.", Toast.LENGTH_LONG).show()
+            return -1
+        }
+    }
+
+    val alarmReceiverIntent = Intent(context, AlarmWorker::class.java).apply {
         putExtra("title", title)
         putExtra("message", message)
+        putExtra("alarmId", alarmId)
     }
-    val requestCode = System.currentTimeMillis().toInt()
-    val pendingIntent = PendingIntent.getBroadcast(
+    val alarmPendingIntent = PendingIntent.getBroadcast(
         context,
-        requestCode,
-        intent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        alarmId,
+        alarmReceiverIntent,
+        PendingIntent.FLAG_IMMUTABLE
     )
+    // Optional: Intent to show when the user clicks the alarm icon in the status bar (if shown)
+    // This usually opens the app's main screen or a specific alarm screen.
+//    val showAppIntent = Intent(context, MainActivity::class.java).apply { // Or your specific alarm activity
+//        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+//        // You could add extras here if needed to navigate to a specific part of your app
+//        // putExtra("alarm_id_clicked", alarmId)
+//    }
+//    val showAppPendingIntent = PendingIntent.getActivity(
+//        context,
+//        alarmId + 1000, // Use a different request code to avoid collision with alarmPendingIntent
+//        showAppIntent,
+//        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+//    )
+//
+//    val alarmClockInfo = AlarmManager.AlarmClockInfo(duration, showAppPendingIntent)
 
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        if (alarmManager.canScheduleExactAlarms()) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, duration, pendingIntent)
-        } else {
-            // Guide user to settings or use inexact alarm
-            // Or schedule a WorkManager request as a fallback
-        }
-    } else {
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, duration, pendingIntent)
+    try {
+        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,duration, alarmPendingIntent)
+        Log.d("ExactAlarmScheduler", "Exact alarm (setAlarmClock) scheduled for $duration with alarm ID: $alarmId")
+        Toast.makeText(context, "Alarm set for exact time!", Toast.LENGTH_SHORT).show()
+        return alarmId
+    } catch (se: SecurityException) {
+        // This might happen if canScheduleExactAlarms() was true but permission was revoked just before setting.
+        // Or if on API 34+ and USE_EXACT_ALARM is needed but not granted/declared appropriately.
+        Log.e("ExactAlarmScheduler", "SecurityException while setting alarm clock for alarm ID: $alarmId. $se")
+        Toast.makeText(context, "Could not set exact alarm due to a security policy.", Toast.LENGTH_LONG).show()
+        // Potentially guide to settings again or log more details.
+        return -1
+    } catch (e: Exception) {
+        Log.e("ExactAlarmScheduler", "Exception while setting alarm clock for alarm ID: $alarmId. $e")
+        Toast.makeText(context, "Could not set exact alarm.", Toast.LENGTH_LONG).show()
+        return -1
     }
-
-    return requestCode
-}
-
-fun scheduleNotification(context: Context, duration: Long, title: String, message: String): UUID {
-    val data = workDataOf(
-        "title" to title,
-        "message" to message
-    )
-    val workRequest = OneTimeWorkRequestBuilder<NotificationWorker>()
-        .setInputData(data)
-        .setInitialDelay(duration, TimeUnit.MILLISECONDS)
-        .addTag("reminder_notification")
-        .build()
-
-    WorkManager.getInstance(context).enqueue(workRequest)
-    return workRequest.id
 }
 
 fun checkForNotificationPermission(context: Context): Boolean {

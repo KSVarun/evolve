@@ -30,5 +30,5 @@ interface RemainderDAO {
     suspend fun deleteById(id:UUID)
 
     @Query("UPDATE remainders SET title = :title, description = :description, time=:time, workerId=:workerId WHERE id = :id")
-    suspend fun updateRemainderById(id: UUID, title: String, description: String, time:Long, workerId:UUID)
+    suspend fun updateRemainderById(id: UUID, title: String, description: String, time:Long, workerId:Int)
 }
