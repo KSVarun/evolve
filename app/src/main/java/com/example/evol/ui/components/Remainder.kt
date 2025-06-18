@@ -181,13 +181,143 @@ fun Remainder(context: Context) {
         titleErrorMessage = ""
     }
 
+    fun saveClick() {
+        val dateTimeInMilli = convertDateTimeToMillis(
+            date, "$hourValue:$minuteValue"
+        )
+        val remainder = Remainder(
+            id = editingRemainder.value?.id ?: UUID.randomUUID(),
+            title = title,
+            description = description,
+            time = dateTimeInMilli,
+            workerId = editingRemainder.value?.workerId
+        )
+        if (editingRemainder.value?.id !== null) {
+            if (editingRemainder.value?.workerId !== null) {
+                editingRemainder.value!!.workerId?.let {
+                    WorkManager.getInstance(context).cancelWorkById(
+                        it
+                    )
+                }
+            }
+            val workerId = scheduleNotification(
+                context,
+                remainder.time - System.currentTimeMillis(),
+                remainder.title,
+                remainder.description
+            )
+            remainder.workerId = workerId
+            remainderViewModal.updateRemainderByIDFromDB(
+                remainder.id,
+                remainder.title,
+                remainder.description,
+                remainder.time,
+                remainder.workerId!!
+            )
+        } else {
+            val workerId = scheduleNotification(
+                context,
+                remainder.time - System.currentTimeMillis(),
+                remainder.title,
+                remainder.description
+            )
+            remainder.workerId = workerId
+            remainderViewModal.insertRemainderToDB(remainder)
+        }
+        resetValuesToDefault()
+        showDialog.value = false
+        recomputeResultRemainders(remainderData)
+    }
+
+    fun filterByPastRemainders() {
+        focusManager.clearFocus()
+        if (filter.contains(oldFilterText) && filter.contains(newFilterText)) {
+            filter.remove(oldFilterText)
+            resultRemainders.apply { recomputeResultRemainders(remainderData) }
+        } else if (filter.contains(oldFilterText) && !filter.contains(newFilterText)) {
+            filter.add(newFilterText)
+            filter.remove(oldFilterText)
+            resultRemainders.apply { recomputeResultRemainders(remainderData) }
+            Toast.makeText(
+                context, "At least one filter will be selected", Toast.LENGTH_SHORT
+            ).show()
+        } else if (!filter.contains(oldFilterText) && filter.contains(newFilterText)) {
+            filter.add(oldFilterText)
+            resultRemainders.apply { recomputeResultRemainders(remainderData) }
+        } else {
+            filter.add(oldFilterText)
+            resultRemainders.apply { recomputeResultRemainders(remainderData) }
+        }
+    }
+
+    fun filterByFutureRemainders() {
+        focusManager.clearFocus()
+        if (filter.contains(newFilterText) && filter.contains(oldFilterText)) {
+            filter.remove(newFilterText)
+            resultRemainders.apply { recomputeResultRemainders(remainderData) }
+        } else if (filter.contains(newFilterText) && !filter.contains(oldFilterText)) {
+            filter.add(oldFilterText)
+            filter.remove(newFilterText)
+            resultRemainders.apply { recomputeResultRemainders(remainderData) }
+            Toast.makeText(
+                context, "At least one filter will be selected", Toast.LENGTH_SHORT
+            ).show()
+        } else if (filter.contains(oldFilterText) && !filter.contains(newFilterText)) {
+            filter.add(newFilterText)
+            resultRemainders.apply { recomputeResultRemainders(remainderData) }
+        } else {
+            filter.add(newFilterText)
+            resultRemainders.apply { recomputeResultRemainders(remainderData) }
+        }
+    }
+
+    fun handleAddRemainderClick(){
+        if (checkForNotificationPermission(context)) {
+            focusManager.clearFocus()
+            showDialog.value = true
+        } else {
+            Toast.makeText(
+                context,
+                "Please allow notification permission in app settings",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    fun handleEditClick(remainder: Remainder){
+        focusManager.clearFocus()
+        showDialog.value = true
+        editingRemainder.value = remainder
+        title = remainder.title
+        description = remainder.description
+        date = convertMillisToDateTime(
+            remainder.time,
+            "dd/MM/yyyy"
+        )
+        hourValue =
+            convertMillisToDateTime(remainder.time, "HH")
+        minuteValue =
+            convertMillisToDateTime(remainder.time, "mm")
+    }
+
+    fun handleDeleteClick(remainder: Remainder){
+        focusManager.clearFocus()
+        if (remainder.workerId !== null) {
+            WorkManager.getInstance(context)
+                .cancelWorkById(remainder.workerId!!)
+        }
+        remainderViewModal.deleteRemainderFromDB(remainder.id)
+        recomputeResultRemainders(remainderData)
+    }
+
     if (showDialog.value) {
         AlertDialog(modifier = Modifier.height(430.dp),
             onDismissRequest = { showDialog.value = false },
             title = { Text("Add remainder") },
             text = {
                 Column {
-                    OutlinedTextField(value = title,
+                    OutlinedTextField(
+                        value = title,
                         onValueChange = { value ->
                             if (value.isNotEmpty() && titleErrorMessage.isNotEmpty()) {
                                 titleErrorMessage = ""
@@ -209,7 +339,8 @@ fun Remainder(context: Context) {
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = description,
+                    OutlinedTextField(
+                        value = description,
                         onValueChange = { description = it },
                         label = { Text("Description") },
                         modifier = Modifier
@@ -272,51 +403,7 @@ fun Remainder(context: Context) {
                         titleErrorMessage = "Title is required"
                         return@Button
                     }
-                    val dateTimeInMilli = convertDateTimeToMillis(
-                        date, "$hourValue:$minuteValue"
-                    )
-                    val remainder = Remainder(
-                        id = editingRemainder.value?.id ?: UUID.randomUUID(),
-                        title = title,
-                        description = description,
-                        time = dateTimeInMilli,
-                        workerId = editingRemainder.value?.workerId
-                    )
-                    if (editingRemainder.value?.id !== null) {
-                        if (editingRemainder.value?.workerId !== null) {
-                            editingRemainder.value!!.workerId?.let {
-                                WorkManager.getInstance(context).cancelWorkById(
-                                    it
-                                )
-                            }
-                        }
-                        val workerId = scheduleNotification(
-                            context,
-                            remainder.time - System.currentTimeMillis(),
-                            remainder.title,
-                            remainder.description
-                        )
-                        remainder.workerId = workerId
-                        remainderViewModal.updateRemainderByIDFromDB(
-                            remainder.id,
-                            remainder.title,
-                            remainder.description,
-                            remainder.time,
-                            remainder.workerId!!
-                        )
-                    } else {
-                        val workerId = scheduleNotification(
-                            context,
-                            remainder.time - System.currentTimeMillis(),
-                            remainder.title,
-                            remainder.description
-                        )
-                        remainder.workerId = workerId
-                        remainderViewModal.insertRemainderToDB(remainder)
-                    }
-                    resetValuesToDefault()
-                    showDialog.value = false
-                    recomputeResultRemainders(remainderData)
+                    saveClick()
                 }) {
                     Text("Save")
                 }
@@ -336,10 +423,10 @@ fun Remainder(context: Context) {
         .pointerInput(Unit) {
             detectTapGestures { focusManager.clearFocus() }
         }
-
     ) {
         Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 2.dp)) {
-            OutlinedTextField(value = search,
+            OutlinedTextField(
+                value = search,
                 onValueChange = { value ->
                     search = value
                     resultRemainders.apply { recomputeResultRemainders(remainderData) }
@@ -352,24 +439,7 @@ fun Remainder(context: Context) {
             Row(modifier = Modifier.padding(bottom = 4.dp)) {
                 Button(
                     onClick = {
-                        focusManager.clearFocus()
-                        if (filter.contains(oldFilterText) && filter.contains(newFilterText)) {
-                            filter.remove(oldFilterText)
-                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
-                        } else if (filter.contains(oldFilterText) && !filter.contains(newFilterText)) {
-                            filter.add(newFilterText)
-                            filter.remove(oldFilterText)
-                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
-                            Toast.makeText(
-                                context, "At least one filter will be selected", Toast.LENGTH_SHORT
-                            ).show()
-                        } else if (!filter.contains(oldFilterText) && filter.contains(newFilterText)) {
-                            filter.add(oldFilterText)
-                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
-                        } else {
-                            filter.add(oldFilterText)
-                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
-                        }
+                        filterByPastRemainders()
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (filter.contains(
@@ -380,32 +450,13 @@ fun Remainder(context: Context) {
                         } else {
                             Color.Gray
                         }
-                    ),
-
-                    ) {
+                    )
+                ) {
                     Text("Past")
                 }
                 Button(
                     onClick = {
-                        focusManager.clearFocus()
-                        if (filter.contains(newFilterText) && filter.contains(oldFilterText)) {
-                            filter.remove(newFilterText)
-                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
-                        } else if (filter.contains(newFilterText) && !filter.contains(oldFilterText)) {
-                            filter.add(oldFilterText)
-                            filter.remove(newFilterText)
-                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
-                            Toast.makeText(
-                                context, "At least one filter will be selected", Toast.LENGTH_SHORT
-                            ).show()
-                        } else if (filter.contains(oldFilterText) && !filter.contains(newFilterText)) {
-                            filter.add(newFilterText)
-                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
-                        } else {
-                            filter.add(newFilterText)
-                            resultRemainders.apply { recomputeResultRemainders(remainderData) }
-                        }
-
+                        filterByFutureRemainders()
                     },
                     modifier = Modifier.padding(start = 10.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -419,7 +470,7 @@ fun Remainder(context: Context) {
                     Text("Future")
                 }
             }
-             Column(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
@@ -432,11 +483,9 @@ fun Remainder(context: Context) {
                         )
 
                     }
-
                     resultRemainders.value.isEmpty() -> {
                         Text(text = "No remainders!", fontSize = 25.sp)
                     }
-
                     else -> {
                         resultRemainders.value.forEachIndexed { _, remainder ->
                             Row(
@@ -470,13 +519,7 @@ fun Remainder(context: Context) {
                                     )
                                     Row {
                                         Button(onClick = {
-                                            focusManager.clearFocus()
-                                            if (remainder.workerId !== null) {
-                                                WorkManager.getInstance(context)
-                                                    .cancelWorkById(remainder.workerId!!)
-                                            }
-                                            remainderViewModal.deleteRemainderFromDB(remainder.id)
-                                            recomputeResultRemainders(remainderData)
+                                            handleDeleteClick(remainder)
                                         }, modifier = Modifier.padding(end = 10.dp)) {
                                             Icon(
                                                 imageVector = Icons.Default.Delete,
@@ -485,19 +528,7 @@ fun Remainder(context: Context) {
                                             )
                                         }
                                         Button(onClick = {
-                                            focusManager.clearFocus()
-                                            showDialog.value = true
-                                            editingRemainder.value = remainder
-                                            title = remainder.title
-                                            description = remainder.description
-                                            date = convertMillisToDateTime(
-                                                remainder.time,
-                                                "dd/MM/yyyy"
-                                            )
-                                            hourValue =
-                                                convertMillisToDateTime(remainder.time, "HH")
-                                            minuteValue =
-                                                convertMillisToDateTime(remainder.time, "mm")
+                                            handleEditClick(remainder)
                                         }) {
                                             Icon(
                                                 imageVector = Icons.Default.Edit,
@@ -517,14 +548,7 @@ fun Remainder(context: Context) {
         }
         Button(
             onClick = {
-                if(checkForNotificationPermission(context)){
-                    focusManager.clearFocus()
-                    showDialog.value = true
-                }else {
-                    Toast.makeText(
-                        context, "Please allow notification permission in app settings", Toast.LENGTH_SHORT
-                    ).show()
-                }
+                handleAddRemainderClick()
             },
             modifier = Modifier
                 .size(80.dp)
@@ -539,7 +563,6 @@ fun Remainder(context: Context) {
             Box(
                 modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
             ) {
-
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "Add",
