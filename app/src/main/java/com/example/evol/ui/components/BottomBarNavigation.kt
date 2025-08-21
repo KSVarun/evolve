@@ -1,14 +1,12 @@
 package com.example.evol.ui.components
 
 import android.content.Context
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -30,9 +28,9 @@ sealed class TabItem(val title: String, val route: String, val icon: ImageVector
     data object Tracker : TabItem("Tracker", "tracker", Icons.Filled.Home)
 //    data object Timer : TabItem("Timer", "timer", Icons.Filled.Build)
     data object Remainder : TabItem("Remainder", "remainder", Icons.Filled.Notifications)
+    data object Food : TabItem("Food", "food", Icons.Filled.Person)
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun BottomBarNavigation(context: Context) {
     val navController = rememberNavController()
@@ -46,6 +44,7 @@ fun BottomBarNavigation(context: Context) {
             composable(TabItem.Tracker.route) { Tracker(context) }
 //            composable(TabItem.Timer.route) { Timer(context) }
             composable(TabItem.Remainder.route){ Remainder(context)}
+            composable(TabItem.Food.route){ Food(context)}
         }
     }
 }
@@ -56,7 +55,8 @@ fun BottomNavigationBar(navController: NavController) {
     val items = listOf(
         TabItem.Tracker,
 //        TabItem.Timer,
-        TabItem.Remainder
+        TabItem.Remainder,
+        TabItem.Food
     )
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route

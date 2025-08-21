@@ -9,10 +9,10 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.room.Room
-import com.example.evol.data.TrackerAPIGetResponse
+import com.example.evol.data.HabitTrackerAPIGetResponse
 import com.example.evol.entity.Consistency
 import com.example.evol.entity.ThresholdIncrement
-import com.example.evol.entity.Tracker
+import com.example.evol.entity.HabitTracker
 import com.example.evol.service.ApiClient
 import com.example.evol.service.UpdateTrackerRequestBody
 import com.example.evol.utils.getCurrentDate
@@ -31,7 +31,7 @@ import java.time.format.DateTimeFormatter
 
  */
 
-class TrackerViewModel(application: Application) : AndroidViewModel(application) {
+class HabitTrackerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = Room.databaseBuilder(
         application,
@@ -39,14 +39,14 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         "evolve_database"
     ).fallbackToDestructiveMigration().build()
 
-    private val trackerDAO = db.trackerDAO()
-    val trackerData = mutableStateListOf<Tracker>()
+    private val trackerDAO = db.habitTrackerDAO()
+    val habitTrackerData = mutableStateListOf<HabitTracker>()
     private val configData = mutableStateOf<Map<String, Map<String, String>>?>(null)
     var updateAPICallIsLoading = mutableStateOf(false)
     val consistentData = mutableMapOf<String, Consistency>()
     var selectedDate = mutableStateOf(getCurrentDate())
     private var initialAPICallMade = mutableStateOf(false)
-    private var apiData = mutableStateOf<TrackerAPIGetResponse?>(null)
+    private var apiData = mutableStateOf<HabitTrackerAPIGetResponse?>(null)
     val dataFetchIsLoading = mutableStateOf(false)
 
     init {
@@ -75,7 +75,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
                 if (currentDatesData != null) {
                     getConsistentData(filteredTrackData, true)
-                    trackerData.clear()
+                    habitTrackerData.clear()
                     //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                     trackerDAO.deleteAll()
                     val convertedData =
@@ -83,24 +83,24 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                     if (convertedData.size != apiData.value!!.configurations.keys.size) {
                         apiData.value!!.configurations.keys.forEach { item ->
                             if (currentDatesData[item] == null) {
-                                convertedData.add(Tracker(id = null, item = item, value = 0.0))
+                                convertedData.add(HabitTracker(id = null, item = item, value = 0.0))
                             }
                         }
                     }
                     trackerDAO.insertAll(convertedData)
-                    trackerData.addAll(convertedData)
+                    habitTrackerData.addAll(convertedData)
                 }
                 if (currentDatesData == null) {
                     getConsistentData(filteredTrackData, false)
-                    trackerData.clear()
+                    habitTrackerData.clear()
                     //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
                     trackerDAO.deleteAll()
-                    val convertedData: MutableList<Tracker> = mutableListOf()
+                    val convertedData: MutableList<HabitTracker> = mutableListOf()
                     apiData.value!!.configurations.keys.forEach { item ->
-                        convertedData.add(Tracker(id = null, item = item, value = 0.0))
+                        convertedData.add(HabitTracker(id = null, item = item, value = 0.0))
                     }
                     trackerDAO.insertAll(convertedData)
-                    trackerData.addAll(convertedData)
+                    habitTrackerData.addAll(convertedData)
                 }
             } catch (e: Exception) {
                 println("error----")
@@ -148,7 +148,13 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                         ).show()
                     }
                 } catch (e: Exception) {
-                    println("error----")
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            getApplication(),
+                            "Network error. Please try again.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                     e.printStackTrace()
                 }
             }
@@ -165,7 +171,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     ) {
         var data = mutableListOf<Map<String, String>>()
 
-        trackData.forEach { (t, u) ->
+        trackData.forEach { (_, u) ->
             data.add(u)
 
         }
@@ -230,9 +236,9 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     }
 
 
-    private fun convertTrackerDataMapToList(map: Map<String, String>): List<Tracker> {
+    private fun convertTrackerDataMapToList(map: Map<String, String>): List<HabitTracker> {
         return map.map { entry ->
-            Tracker(
+            HabitTracker(
                 id = null,
                 item = entry.key,
                 value = (if (entry.value.isNotEmpty()) {
@@ -264,7 +270,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             try {
                 updateAPICallIsLoading.value = true
                 val requestData = mutableListOf(selectedDate.value)
-                trackerData.forEach { data ->
+                habitTrackerData.forEach { data ->
                     requestData.add(data.value.toString())
                 }
                 val response = ApiClient.updateTrackerApiService.updateTrackers(
@@ -277,19 +283,22 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
             } catch (e: java.lang.Exception) {
                 updateAPICallIsLoading.value = false
-                Toast.makeText(
-                    getApplication(),
-                    "Something happened with API call, please retry",
-                    Toast.LENGTH_SHORT
-                ).show()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        getApplication(),
+                        "Something happened with API call, please retry",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                e.printStackTrace()
             }
 
         }
     }
 
-    private fun updateApiData(currentTrackerDataList: List<Tracker>){
+    private fun updateApiData(currentHabitTrackerDataList: List<HabitTracker>){
         apiData.value?.let { currentApiData ->
-            val newTrackForSelectedDate = currentTrackerDataList.associate { tracker ->
+            val newTrackForSelectedDate = currentHabitTrackerDataList.associate { tracker ->
                 tracker.item to tracker.value.toString()
             }
 
@@ -303,22 +312,22 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
     fun incrementValue(index: Int, item: String) {
         val incrementValue = configData.value?.get(item)?.get(ThresholdIncrement)?.toInt() ?: 1
-        val data = trackerData[index]
+        val data = habitTrackerData[index]
         val updatedData = data.copy(value = data.value.plus(incrementValue))
         viewModelScope.launch {
             trackerDAO.update(updatedData)
-            trackerData[index] = updatedData
-            updateApiData(trackerData)
+            habitTrackerData[index] = updatedData
+            updateApiData(habitTrackerData)
         }
     }
 
     fun decrementValue(index: Int) {
-        val data = trackerData[index]
+        val data = habitTrackerData[index]
         val updatedData = data.copy(value = data.value.minus(1))
         viewModelScope.launch {
             trackerDAO.update(updatedData)
-            trackerData[index] = updatedData
-            updateApiData(trackerData)
+            habitTrackerData[index] = updatedData
+            updateApiData(habitTrackerData)
         }
     }
 }

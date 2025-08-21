@@ -18,7 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,8 +49,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evol.entity.Consistency
 import com.example.evol.utils.hashCodeToColor
 import com.example.evol.utils.isSelectedDateLessThanCurrentData
-import com.example.evol.viewModel.TrackerViewModel
-import com.example.evol.viewModelFactory.TrackerViewModelFactory
+import com.example.evol.viewModel.HabitTrackerViewModel
+import com.example.evol.viewModelFactory.HabitTrackerViewModelFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -59,8 +59,8 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Tracker(context: Context) {
-    val trackerViewModal: TrackerViewModel =
-        viewModel(factory = TrackerViewModelFactory(context.applicationContext as Application))
+    val habitTrackerViewModal: HabitTrackerViewModel =
+        viewModel(factory = HabitTrackerViewModelFactory(context.applicationContext as Application))
     val scrollState = rememberScrollState()
     var lastButtonClicked by remember { mutableStateOf(false) }
     var shouldCallLastAction by remember { mutableStateOf(false) }
@@ -68,8 +68,8 @@ fun Tracker(context: Context) {
     val coroutineScope = rememberCoroutineScope()
 
     fun debouncedSaveAPICall() {
-        if (!trackerViewModal.updateAPICallIsLoading.value) {
-            trackerViewModal.updateTrackerDataAPI()
+        if (!habitTrackerViewModal.updateAPICallIsLoading.value) {
+            habitTrackerViewModal.updateTrackerDataAPI()
         } else {
             shouldCallLastAction = true
         }
@@ -85,9 +85,9 @@ fun Tracker(context: Context) {
         }
     }
 
-    LaunchedEffect(trackerViewModal.updateAPICallIsLoading.value) {
-        if (!trackerViewModal.updateAPICallIsLoading.value && shouldCallLastAction) {
-            trackerViewModal.updateTrackerDataAPI()
+    LaunchedEffect(habitTrackerViewModal.updateAPICallIsLoading.value) {
+        if (!habitTrackerViewModal.updateAPICallIsLoading.value && shouldCallLastAction) {
+            habitTrackerViewModal.updateTrackerDataAPI()
             shouldCallLastAction = false
         }
     }
@@ -131,12 +131,12 @@ fun Tracker(context: Context) {
                         val swipeThreshold = 100
 
                         if (dragAmount > swipeThreshold) {
-                            trackerViewModal.updateDate("decrement")
+                            habitTrackerViewModal.updateDate("decrement")
                         } else if (dragAmount < -swipeThreshold && isSelectedDateLessThanCurrentData(
-                                trackerViewModal.selectedDate.value
+                                habitTrackerViewModal.selectedDate.value
                             )
                         ) {
-                            trackerViewModal.updateDate("increment")
+                            habitTrackerViewModal.updateDate("increment")
                         }
                     }
                 ) { change, _ ->
@@ -153,7 +153,7 @@ fun Tracker(context: Context) {
         ) {
             Button(
                 onClick = {
-                    trackerViewModal.updateDate("decrement")
+                    habitTrackerViewModal.updateDate("decrement")
                 },
                 modifier = Modifier
                     .padding(start = 10.dp)
@@ -172,14 +172,14 @@ fun Tracker(context: Context) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = trackerViewModal.selectedDate.value, color = Color.White
+                    text = habitTrackerViewModal.selectedDate.value, color = Color.White
                 )
             }
             Button(
                 onClick = {
-                    trackerViewModal.updateDate("increment")
+                    habitTrackerViewModal.updateDate("increment")
                 },
-                enabled = isSelectedDateLessThanCurrentData(trackerViewModal.selectedDate.value),
+                enabled = isSelectedDateLessThanCurrentData(habitTrackerViewModal.selectedDate.value),
                 modifier = Modifier
                     .padding(end = 10.dp)
                     .size(20.dp)
@@ -197,16 +197,16 @@ fun Tracker(context: Context) {
             state = pullToRefreshState,
             onRefresh = {
                 coroutineScope.launch {
-                    trackerViewModal.forceLoadDataOnPullToRefresh()
+                    habitTrackerViewModal.forceLoadDataOnPullToRefresh()
                 }
             },
-            isRefreshing = trackerViewModal.dataFetchIsLoading.value,
+            isRefreshing = habitTrackerViewModal.dataFetchIsLoading.value,
             modifier = Modifier
                 .fillMaxSize(),
             indicator = {
                 Indicator(
                     modifier = Modifier.align(Alignment.TopCenter),
-                    isRefreshing = trackerViewModal.dataFetchIsLoading.value,
+                    isRefreshing = habitTrackerViewModal.dataFetchIsLoading.value,
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     state = pullToRefreshState
@@ -220,10 +220,10 @@ fun Tracker(context: Context) {
                     .verticalScroll(scrollState)
             ) {
 
-                trackerViewModal.trackerData.forEachIndexed { index, data ->
-                    val isLastItem = index == trackerViewModal.trackerData.lastIndex
+                habitTrackerViewModal.habitTrackerData.forEachIndexed { index, data ->
+                    val isLastItem = index == habitTrackerViewModal.habitTrackerData.lastIndex
                     val consistentData =
-                        renderConsistentData(trackerViewModal.consistentData[data.item])
+                        renderConsistentData(habitTrackerViewModal.consistentData[data.item])
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -234,7 +234,7 @@ fun Tracker(context: Context) {
                     ) {
                         Button(
                             onClick = {
-                                trackerViewModal.decrementValue(index)
+                                habitTrackerViewModal.decrementValue(index)
                                 lastButtonClicked = true
                             },
                             enabled = data.value > 0,
@@ -273,11 +273,9 @@ fun Tracker(context: Context) {
                                 .weight(1f),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            data.item?.let {
-                                Text(
-                                    text = it,
-                                )
-                            }
+                            Text(
+                                text = data.item,
+                            )
                             Text(
                                 text = data.value.toString()
                             )
@@ -300,7 +298,7 @@ fun Tracker(context: Context) {
 
                         Button(
                             onClick = {
-                                trackerViewModal.incrementValue(index, data.item ?: "")
+                                habitTrackerViewModal.incrementValue(index, data.item)
                                 lastButtonClicked = true
                             },
                             modifier = Modifier
@@ -321,8 +319,8 @@ fun Tracker(context: Context) {
         }
         Button(
             onClick = {
-                if (!trackerViewModal.updateAPICallIsLoading.value) {
-                    trackerViewModal.updateTrackerDataAPI()
+                if (!habitTrackerViewModal.updateAPICallIsLoading.value) {
+                    habitTrackerViewModal.updateTrackerDataAPI()
                 }
             },
             modifier = Modifier
@@ -339,7 +337,7 @@ fun Tracker(context: Context) {
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                if (trackerViewModal.updateAPICallIsLoading.value) {
+                if (habitTrackerViewModal.updateAPICallIsLoading.value) {
                     CircularProgressIndicator(
                         modifier = Modifier
                             .width(34.dp)
@@ -349,7 +347,7 @@ fun Tracker(context: Context) {
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Default.Send,
+                        imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Send",
                         modifier = Modifier.size(30.dp)
                     )
