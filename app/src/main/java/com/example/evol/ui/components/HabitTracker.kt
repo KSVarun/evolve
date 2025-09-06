@@ -47,6 +47,7 @@ import androidx.compose.ui.zIndex
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evol.entity.Consistency
+import com.example.evol.ui.reusable.LongPressElement
 import com.example.evol.utils.hashCodeToColor
 import com.example.evol.utils.isSelectedDateLessThanCurrentData
 import com.example.evol.viewModel.HabitTrackerViewModel
@@ -66,6 +67,7 @@ fun Tracker(context: Context) {
     var shouldCallLastAction by remember { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
     val coroutineScope = rememberCoroutineScope()
+
 
     fun debouncedSaveAPICall() {
         if (!habitTrackerViewModal.updateAPICallIsLoading.value) {
@@ -224,6 +226,11 @@ fun Tracker(context: Context) {
                     val isLastItem = index == habitTrackerViewModal.habitTrackerData.lastIndex
                     val consistentData =
                         renderConsistentData(habitTrackerViewModal.consistentData[data.item])
+                    val backgroundColor = if (data.value > 0) {
+                        hashCodeToColor("#4999e9".toColorInt())
+                    } else {
+                        hashCodeToColor("#9AA6B2".toColorInt())
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -232,23 +239,20 @@ fun Tracker(context: Context) {
                             .background(color = hashCodeToColor("#474747".toColorInt())),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Button(
-                            onClick = {
-                                habitTrackerViewModal.decrementValue(index)
-                                lastButtonClicked = true
-                            },
-                            enabled = data.value > 0,
-                            modifier = Modifier
-                                .padding(start = 10.dp)
-                                .size(50.dp)
-                                .wrapContentSize(Alignment.Center),
-                            contentPadding = PaddingValues(0.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = hashCodeToColor("#4999e9".toColorInt())
-                            ),
-                        ) {
-                            Text(text = "-", fontSize = 25.sp, color = Color.White)
-                        }
+                        LongPressElement(modifier = Modifier
+                            .padding(start = 10.dp)
+                            .size(50.dp)
+                            .wrapContentSize(Alignment.Center)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(backgroundColor)
+                            .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 8.dp), onClick = {
+                                if (data.value > 0) {
+                                    habitTrackerViewModal.decrementValue(index)
+                                    lastButtonClicked = true
+                                }
+                            }, onLongClick = { if (data.value > 0) {
+                            habitTrackerViewModal.decrementValueOnLongPress(index, data.item)
+                            lastButtonClicked = true} }, text = "-")
 
                         Box(
                             modifier = Modifier
@@ -296,23 +300,19 @@ fun Tracker(context: Context) {
                             )
                         }
 
-                        Button(
-                            onClick = {
-                                habitTrackerViewModal.incrementValue(index, data.item)
+                        LongPressElement(modifier = Modifier.padding(end = 10.dp)
+                            .size(50.dp)
+                            .wrapContentSize(Alignment.Center)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(hashCodeToColor("#4999e9".toColorInt()))
+                            .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 8.dp), onClick = {
+                            habitTrackerViewModal.incrementValue(index, data.item)
                                 lastButtonClicked = true
-                            },
-                            modifier = Modifier
-                                .padding(end = 10.dp)
-                                .size(50.dp)
-                                .wrapContentSize(Alignment.Center),
-                            contentPadding = PaddingValues(0.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = hashCodeToColor("#4999e9".toColorInt())
-                            ),
+                        }, onLongClick = {
+                            habitTrackerViewModal.incrementValueOnLongPress(index)
+                            lastButtonClicked = true} , text = "+")
 
-                            ) {
-                            Text(text = "+", fontSize = 25.sp, color = Color.White)
-                        }
+
                     }
                 }
             }

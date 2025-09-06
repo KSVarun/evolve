@@ -266,7 +266,7 @@ class HabitTrackerViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun updateTrackerDataAPI() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 updateAPICallIsLoading.value = true
                 val requestData = mutableListOf(selectedDate.value)
@@ -324,6 +324,31 @@ class HabitTrackerViewModel(application: Application) : AndroidViewModel(applica
     fun decrementValue(index: Int) {
         val data = habitTrackerData[index]
         val updatedData = data.copy(value = data.value.minus(1))
+        viewModelScope.launch {
+            trackerDAO.update(updatedData)
+            habitTrackerData[index] = updatedData
+            updateApiData(habitTrackerData)
+        }
+    }
+
+    fun decrementValueOnLongPress(index: Int, item:String){
+        val decrementBy = configData.value?.get(item)?.get(ThresholdIncrement)?.toInt() ?: 1
+        val data = habitTrackerData[index]
+        var decrementValue = data.value.minus(decrementBy)
+        if(decrementValue < 0){
+            decrementValue = 0.0
+        }
+        val updatedData = data.copy(value = decrementValue)
+        viewModelScope.launch {
+            trackerDAO.update(updatedData)
+            habitTrackerData[index] = updatedData
+            updateApiData(habitTrackerData)
+        }
+    }
+
+    fun incrementValueOnLongPress(index: Int) {
+        val data = habitTrackerData[index]
+        val updatedData = data.copy(value = data.value.plus(1))
         viewModelScope.launch {
             trackerDAO.update(updatedData)
             habitTrackerData[index] = updatedData
