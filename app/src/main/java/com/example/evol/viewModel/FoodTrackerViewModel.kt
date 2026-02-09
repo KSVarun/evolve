@@ -260,7 +260,7 @@ class FoodTrackerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun updateTrackerDataAPI() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 updateAPICallIsLoading.value = true
                 val requestData = mutableListOf(selectedDate.value)
@@ -318,6 +318,31 @@ class FoodTrackerViewModel(application: Application) : AndroidViewModel(applicat
     fun decrementValue(index: Int) {
         val data = foodTrackerData[index]
         val updatedData = data.copy(value = data.value.minus(1))
+        viewModelScope.launch {
+            trackerDAO.update(updatedData)
+            foodTrackerData[index] = updatedData
+            updateApiData(foodTrackerData)
+        }
+    }
+
+    fun decrementValueOnLongPress(index: Int, item:String){
+        val decrementBy = configData.value?.get(item)?.get(ThresholdIncrement)?.toInt() ?: 1
+        val data = foodTrackerData[index]
+        var decrementValue = data.value.minus(decrementBy)
+        if(decrementValue < 0){
+            decrementValue = 0.0
+        }
+        val updatedData = data.copy(value = decrementValue)
+        viewModelScope.launch {
+            trackerDAO.update(updatedData)
+            foodTrackerData[index] = updatedData
+            updateApiData(foodTrackerData)
+        }
+    }
+
+    fun incrementValueOnLongPress(index: Int) {
+        val data = foodTrackerData[index]
+        val updatedData = data.copy(value = data.value.plus(1))
         viewModelScope.launch {
             trackerDAO.update(updatedData)
             foodTrackerData[index] = updatedData

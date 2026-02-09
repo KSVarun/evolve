@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,10 +26,10 @@ import androidx.navigation.compose.rememberNavController
 
 
 sealed class TabItem(val title: String, val route: String, val icon: ImageVector) {
-    data object Tracker : TabItem("Tracker", "tracker", Icons.Filled.Home)
+    data object Tracker : TabItem("Daily", "tracker", Icons.Filled.Home)
 //    data object Timer : TabItem("Timer", "timer", Icons.Filled.Build)
-    data object Remainder : TabItem("Remainder", "remainder", Icons.Filled.Notifications)
-    data object Food : TabItem("Food", "food", Icons.Filled.Person)
+    data object Remainder : TabItem("Alerts", "remainder", Icons.Filled.Notifications)
+    data object Food : TabItem("Profile", "food", Icons.Filled.Person)
 }
 
 @Composable
@@ -61,8 +62,8 @@ fun BottomNavigationBar(navController: NavController) {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
     NavigationBar(
-        containerColor = Color.Gray,
-        contentColor = Color.White
+        containerColor = Color.White,
+        contentColor = Color(0xFF9AA6B2)
     ) {
 
         items.forEach { item ->
@@ -70,6 +71,13 @@ fun BottomNavigationBar(navController: NavController) {
                 icon = { Icon(item.icon, contentDescription = item.title) },
                 label = { Text(item.title) },
                 selected = currentRoute == item.route,
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = Color(0xFF2D6BFF),
+                    selectedTextColor = Color(0xFF2D6BFF),
+                    indicatorColor = Color(0xFFE7ECF4),
+                    unselectedIconColor = Color(0xFF9AA6B2),
+                    unselectedTextColor = Color(0xFF9AA6B2)
+                ),
                 onClick = {
                     navController.navigate(item.route) {
                         popUpTo(navController.graph.startDestinationId) { saveState = true }

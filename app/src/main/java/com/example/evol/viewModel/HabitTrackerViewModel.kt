@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.room.Room
 import com.example.evol.data.HabitTrackerAPIGetResponse
 import com.example.evol.entity.Consistency
+import com.example.evol.entity.MaxThresholdValue
 import com.example.evol.entity.ThresholdIncrement
 import com.example.evol.entity.HabitTracker
 import com.example.evol.service.ApiClient
@@ -250,6 +251,10 @@ class HabitTrackerViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    fun getMaxThreshold(item: String): Int? {
+        return configData.value?.get(item)?.get(MaxThresholdValue)?.toIntOrNull()
+    }
+
     fun updateDate(incrementOrDecrement: String) {
         viewModelScope.launch {
 
@@ -260,6 +265,14 @@ class HabitTrackerViewModel(application: Application) : AndroidViewModel(applica
                 selectedDate.value = getPreviousNDate(selectedDate.value, 1)
 
             }
+            consistentData.clear()
+            loadTrackersFromApi()
+        }
+    }
+
+    fun setSelectedDate(date: String) {
+        viewModelScope.launch {
+            selectedDate.value = date
             consistentData.clear()
             loadTrackersFromApi()
         }
@@ -356,7 +369,5 @@ class HabitTrackerViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 }
-
-
 
 
