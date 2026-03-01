@@ -196,6 +196,7 @@ fun Tracker(context: Context) {
     val density = LocalDensity.current
     var headerHeightPx by remember { mutableFloatStateOf(0f) }
     var headerOffsetPx by remember { mutableFloatStateOf(0f) }
+    var isHorizontalDateSwipeInProgress by remember { mutableStateOf(false) }
     val headerHeightDp = with(density) { headerHeightPx.toDp() }
     val headerScrollBehavior = remember(headerHeightPx, coroutineScope) {
         var headerAnimationJob: kotlinx.coroutines.Job? = null
@@ -203,6 +204,12 @@ fun Tracker(context: Context) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (headerHeightPx <= 0f) return Offset.Zero
+                if (isHorizontalDateSwipeInProgress) {
+                    if (headerOffsetPx != 0f) {
+                        headerOffsetPx = 0f
+                    }
+                    return Offset.Zero
+                }
 
                 val delta = available.y
                 if (delta < 0f) {
@@ -235,9 +242,13 @@ fun Tracker(context: Context) {
                 var dragEndX = 0f
                 detectHorizontalDragGestures(
                     onDragStart = { offset ->
+                        isHorizontalDateSwipeInProgress = true
+                        headerOffsetPx = 0f
                         dragStartX = offset.x
                     },
                     onDragEnd = {
+                        isHorizontalDateSwipeInProgress = false
+                        headerOffsetPx = 0f
                         val dragAmount = dragEndX - dragStartX
                         val swipeThreshold = 100
 
@@ -249,6 +260,10 @@ fun Tracker(context: Context) {
                         ) {
                             habitTrackerViewModal.updateDate("increment")
                         }
+                    },
+                    onDragCancel = {
+                        isHorizontalDateSwipeInProgress = false
+                        headerOffsetPx = 0f
                     }
                 ) { change, _ ->
                     change.consume()
@@ -512,9 +527,13 @@ fun Tracker(context: Context) {
                                 var dragEndX = 0f
                                 detectHorizontalDragGestures(
                                     onDragStart = { offset ->
+                                        isHorizontalDateSwipeInProgress = true
+                                        headerOffsetPx = 0f
                                         dragStartX = offset.x
                                     },
                                     onDragEnd = {
+                                        isHorizontalDateSwipeInProgress = false
+                                        headerOffsetPx = 0f
                                         val dragAmount = dragEndX - dragStartX
                                         val swipeThreshold = 60
                                         val candidateDate = when {
@@ -527,6 +546,10 @@ fun Tracker(context: Context) {
                                                 candidateDate.format(dateFormatter)
                                             )
                                         }
+                                    },
+                                    onDragCancel = {
+                                        isHorizontalDateSwipeInProgress = false
+                                        headerOffsetPx = 0f
                                     }
                                 ) { change, _ ->
                                     change.consume()
