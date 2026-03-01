@@ -2,6 +2,9 @@ package com.example.evol.ui.components
 
 import android.app.Application
 import android.content.Context
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -15,13 +18,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -56,12 +61,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evol.utils.isSelectedDateLessThanCurrentData
 import com.example.evol.viewModel.HabitTrackerViewModel
@@ -83,7 +97,7 @@ import kotlin.math.roundToInt
 fun Tracker(context: Context) {
     val habitTrackerViewModal: HabitTrackerViewModel =
         viewModel(factory = HabitTrackerViewModelFactory(context.applicationContext as Application))
-    val scrollState = rememberScrollState()
+    val listState = rememberLazyListState()
     var lastButtonClicked by remember { mutableStateOf(false) }
     var shouldCallLastAction by remember { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
@@ -155,6 +169,50 @@ fun Tracker(context: Context) {
             }
         }
     )
+    val headerText = remember(currentDate) {
+        val monthDay = currentDate.format(
+            DateTimeFormatter.ofPattern("MMM, d EEE", Locale.getDefault())
+        )
+        if (currentDate.year == todayDate.year) {
+            monthDay
+        } else {
+            "$monthDay - ${currentDate.year}"
+        }
+    }
+    val density = LocalDensity.current
+    var headerHeightPx by remember { mutableStateOf(0f) }
+    var headerOffsetTargetPx by remember { mutableStateOf(0f) }
+    var animateHeaderReveal by remember { mutableStateOf(false) }
+    val headerOffsetPx by animateFloatAsState(
+        targetValue = headerOffsetTargetPx,
+        animationSpec = if (animateHeaderReveal) {
+            tween(durationMillis = 250)
+        } else {
+            snap()
+        },
+        label = "tracker_header_offset"
+    )
+    val headerHeightDp = with(density) { headerHeightPx.toDp() }
+    val headerScrollBehavior = remember(headerHeightPx) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (headerHeightPx <= 0f) return Offset.Zero
+
+                val delta = available.y
+                if (delta < 0f) {
+                    animateHeaderReveal = false
+                    val newOffset = (headerOffsetPx + delta).coerceIn(-headerHeightPx, 0f)
+                    if (newOffset != headerOffsetTargetPx) {
+                        headerOffsetTargetPx = newOffset
+                    }
+                } else if (delta > 0f && headerOffsetTargetPx != 0f) {
+                    animateHeaderReveal = true
+                    headerOffsetTargetPx = 0f
+                }
+                return Offset.Zero
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -194,7 +252,9 @@ fun Tracker(context: Context) {
                 }
             },
             isRefreshing = habitTrackerViewModal.dataFetchIsLoading.value,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(headerScrollBehavior),
             indicator = {
                 Indicator(
                     modifier = Modifier.align(Alignment.TopCenter),
@@ -205,149 +265,22 @@ fun Tracker(context: Context) {
                 )
             }
         ) {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(scrollState)
-                    .padding(bottom = 24.dp)
+                    .clipToBounds()
             ) {
-                val headerText = remember(currentDate) {
-                    val monthDay = currentDate.format(
-                        DateTimeFormatter.ofPattern("MMM, d EEE", Locale.getDefault())
-                    )
-                    if (currentDate.year == todayDate.year) {
-                        monthDay
-                    } else {
-                        "$monthDay - ${currentDate.year}"
-                    }
-                }
-
-                Row(
+                LazyColumn(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 24.dp, end = 24.dp, top = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    state = listState,
+                    contentPadding = PaddingValues(top = headerHeightDp, bottom = 24.dp)
                 ) {
-                    Text(
-                        text = headerText,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = titleText
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    ElevatedButton(
-                        onClick = { habitTrackerViewModal.updateTrackerDataAPI() },
-                        enabled = !habitTrackerViewModal.updateAPICallIsLoading.value,
-                        modifier = Modifier
-                            .padding(end = 10.dp)
-                            .height(40.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = ButtonDefaults.elevatedButtonColors(
-                            containerColor = accentBlue,
-                            contentColor = colorScheme.onPrimary
-                        ),
-                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 2.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp)
-                    ) {
-                        if (habitTrackerViewModal.updateAPICallIsLoading.value) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = colorScheme.onPrimary,
-                                strokeWidth = 2.dp,
-                                trackColor = colorScheme.onPrimary.copy(alpha = 0.3f)
-                            )
-                        } else {
-                            Text(
-                                text = "SAVE",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                    Surface(
-                        modifier = Modifier.size(48.dp),
-                        shape = CircleShape,
-                        color = cardColor,
-                        shadowElevation = 6.dp
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Filled.CalendarToday,
-                                contentDescription = "Calendar",
-                                tint = mutedText,
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .combinedClickable(
-                                        onClick = { isCalendarOpen = true },
-                                        onLongClick = {}
-                                    )
-                            )
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 16.dp)
-                        .pointerInput(currentDate) {
-                            var dragStartX = 0f
-                            var dragEndX = 0f
-                            detectHorizontalDragGestures(
-                                onDragStart = { offset ->
-                                    dragStartX = offset.x
-                                },
-                                onDragEnd = {
-                                    val dragAmount = dragEndX - dragStartX
-                                    val swipeThreshold = 60
-                                    val candidateDate = when {
-                                        dragAmount > swipeThreshold -> currentDate.minusWeeks(1)
-                                        dragAmount < -swipeThreshold -> currentDate.plusWeeks(1)
-                                        else -> null
-                                    }
-                                    if (candidateDate != null && !candidateDate.isAfter(todayDate)) {
-                                        habitTrackerViewModal.setSelectedDate(
-                                            candidateDate.format(dateFormatter)
-                                        )
-                                    }
-                                }
-                            ) { change, _ ->
-                                change.consume()
-                                dragEndX = change.position.x
-                            }
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    weekDates.forEach { date ->
-                        val isSelected = date == currentDate
-                        WeekDayItem(
-                            day = date.dayOfWeek.getDisplayName(
-                                TextStyle.SHORT,
-                                Locale.getDefault()
-                            ).uppercase(Locale.getDefault()),
-                            date = date.dayOfMonth,
-                            isSelected = isSelected,
-                            accentBlue = accentBlue,
-                            mutedText = mutedText,
-                            titleText = titleText,
-                            isEnabled = !date.isAfter(todayDate),
-                            onClick = {
-                                if (!date.isAfter(todayDate)) {
-                                    habitTrackerViewModal.setSelectedDate(
-                                        date.format(dateFormatter)
-                                    )
-                                }
-                            }
-                        )
-                    }
-                }
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                ) {
-                    habitTrackerViewModal.habitTrackerData.forEachIndexed { index, data ->
+                    itemsIndexed(
+                        items = habitTrackerViewModal.habitTrackerData,
+                        key = { _, data -> data.item }
+                    ) { index, data ->
                         val consistencyData = habitTrackerViewModal.consistentData[data.item]
                         val streakCount = consistencyData?.consistentSince ?: 0
                         val longestPositiveStreak = consistencyData?.longestConsistentSince ?: 0
@@ -465,9 +398,146 @@ fun Tracker(context: Context) {
                             }
                         }
                     }
+
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopStart)
+                        .zIndex(1f)
+                        .offset { IntOffset(0, headerOffsetPx.roundToInt()) }
+                        .background(backgroundColor)
+                        .onGloballyPositioned { coordinates ->
+                            val measuredHeight = coordinates.size.height.toFloat()
+                            if (measuredHeight != headerHeightPx) {
+                                headerHeightPx = measuredHeight
+                            }
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 24.dp, end = 24.dp, top = 24.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = headerText,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = titleText
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        ElevatedButton(
+                            onClick = { habitTrackerViewModal.updateTrackerDataAPI() },
+                            enabled = !habitTrackerViewModal.updateAPICallIsLoading.value,
+                            modifier = Modifier
+                                .padding(end = 10.dp)
+                                .height(40.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = ButtonDefaults.elevatedButtonColors(
+                                containerColor = accentBlue,
+                                contentColor = colorScheme.onPrimary
+                            ),
+                            elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 2.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp)
+                        ) {
+                            if (habitTrackerViewModal.updateAPICallIsLoading.value) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = colorScheme.onPrimary,
+                                    strokeWidth = 2.dp,
+                                    trackColor = colorScheme.onPrimary.copy(alpha = 0.3f)
+                                )
+                            } else {
+                                Text(
+                                    text = "SAVE",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                        Surface(
+                            modifier = Modifier.size(48.dp),
+                            shape = CircleShape,
+                            color = cardColor,
+                            shadowElevation = 6.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Filled.CalendarToday,
+                                    contentDescription = "Calendar",
+                                    tint = mutedText,
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .combinedClickable(
+                                            onClick = { isCalendarOpen = true },
+                                            onLongClick = {}
+                                        )
+                                )
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 16.dp)
+                            .pointerInput(currentDate) {
+                                var dragStartX = 0f
+                                var dragEndX = 0f
+                                detectHorizontalDragGestures(
+                                    onDragStart = { offset ->
+                                        dragStartX = offset.x
+                                    },
+                                    onDragEnd = {
+                                        val dragAmount = dragEndX - dragStartX
+                                        val swipeThreshold = 60
+                                        val candidateDate = when {
+                                            dragAmount > swipeThreshold -> currentDate.minusWeeks(1)
+                                            dragAmount < -swipeThreshold -> currentDate.plusWeeks(1)
+                                            else -> null
+                                        }
+                                        if (candidateDate != null && !candidateDate.isAfter(todayDate)) {
+                                            habitTrackerViewModal.setSelectedDate(
+                                                candidateDate.format(dateFormatter)
+                                            )
+                                        }
+                                    }
+                                ) { change, _ ->
+                                    change.consume()
+                                    dragEndX = change.position.x
+                                }
+                            },
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        weekDates.forEach { date ->
+                            val isSelected = date == currentDate
+                            WeekDayItem(
+                                day = date.dayOfWeek.getDisplayName(
+                                    TextStyle.SHORT,
+                                    Locale.getDefault()
+                                ).uppercase(Locale.getDefault()),
+                                date = date.dayOfMonth,
+                                isSelected = isSelected,
+                                accentBlue = accentBlue,
+                                mutedText = mutedText,
+                                titleText = titleText,
+                                isEnabled = !date.isAfter(todayDate),
+                                onClick = {
+                                    if (!date.isAfter(todayDate)) {
+                                        habitTrackerViewModal.setSelectedDate(
+                                            date.format(dateFormatter)
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
 
