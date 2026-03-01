@@ -353,12 +353,18 @@ fun Tracker(context: Context) {
                         val longestPositiveStreak = consistencyData?.longestConsistentSince ?: 0
                         val longestNegativeStreak = consistencyData?.longestBrokenSince ?: 0
                         val goal = habitTrackerViewModal.getMaxThreshold(data.item)
+                        val isZeroGoal = goal == 0
                         val progress = if (goal != null && goal > 0) {
                             (data.value / goal.toDouble()).toFloat().coerceIn(0f, 1f)
                         } else {
                             null
                         }
-                        val isComplete = progress != null && progress >= 1f
+                        val showGoalZeroAlert = isZeroGoal && data.value > 0.0
+                        val isComplete = if (isZeroGoal) {
+                            data.value == 0.0
+                        } else {
+                            progress != null && progress >= 1f
+                        }
                         val isEmpty = data.value <= 0.0
                         val valueText = if (data.value % 1.0 == 0.0) {
                             data.value.toInt().toString()
@@ -400,6 +406,7 @@ fun Tracker(context: Context) {
                                     progress = progress,
                                     isComplete = isComplete,
                                     isEmpty = isEmpty,
+                                    showAlert = showGoalZeroAlert,
                                     accentBlue = accentBlue,
                                     mutedText = mutedText,
                                     subtleSurface = subtleSurface
@@ -558,6 +565,7 @@ private fun ProgressBadge(
     progress: Float?,
     isComplete: Boolean,
     isEmpty: Boolean,
+    showAlert: Boolean,
     accentBlue: Color,
     mutedText: Color,
     subtleSurface: Color
@@ -567,6 +575,22 @@ private fun ProgressBadge(
         contentAlignment = Alignment.Center
     ) {
         when {
+            showAlert -> {
+                Surface(
+                    modifier = Modifier.size(48.dp),
+                    shape = CircleShape,
+                    color = Color(0xFFFF5A5A)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "!",
+                            fontSize = 22.sp,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
             isComplete -> {
                 Surface(
                     modifier = Modifier.size(48.dp),
