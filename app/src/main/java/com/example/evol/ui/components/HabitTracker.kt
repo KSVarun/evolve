@@ -2,8 +2,7 @@ package com.example.evol.ui.components
 
 import android.app.Application
 import android.content.Context
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -53,6 +52,7 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -180,34 +180,32 @@ fun Tracker(context: Context) {
         }
     }
     val density = LocalDensity.current
-    var headerHeightPx by remember { mutableStateOf(0f) }
-    var headerOffsetTargetPx by remember { mutableStateOf(0f) }
-    var animateHeaderReveal by remember { mutableStateOf(false) }
-    val headerOffsetPx by animateFloatAsState(
-        targetValue = headerOffsetTargetPx,
-        animationSpec = if (animateHeaderReveal) {
-            tween(durationMillis = 250)
-        } else {
-            snap()
-        },
-        label = "tracker_header_offset"
-    )
+    var headerHeightPx by remember { mutableFloatStateOf(0f) }
+    var headerOffsetPx by remember { mutableFloatStateOf(0f) }
     val headerHeightDp = with(density) { headerHeightPx.toDp() }
-    val headerScrollBehavior = remember(headerHeightPx) {
+    val headerScrollBehavior = remember(headerHeightPx, coroutineScope) {
+        var headerAnimationJob: kotlinx.coroutines.Job? = null
+
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (headerHeightPx <= 0f) return Offset.Zero
 
                 val delta = available.y
                 if (delta < 0f) {
-                    animateHeaderReveal = false
-                    val newOffset = (headerOffsetPx + delta).coerceIn(-headerHeightPx, 0f)
-                    if (newOffset != headerOffsetTargetPx) {
-                        headerOffsetTargetPx = newOffset
+                    headerAnimationJob?.cancel()
+                    headerOffsetPx = (headerOffsetPx + delta).coerceIn(-headerHeightPx, 0f)
+                } else if (delta > 0f && headerOffsetPx < 0f) {
+                    if (headerAnimationJob?.isActive != true) {
+                        headerAnimationJob = coroutineScope.launch {
+                            animate(
+                                initialValue = headerOffsetPx,
+                                targetValue = 0f,
+                                animationSpec = tween(durationMillis = 250)
+                            ) { value, _ ->
+                                headerOffsetPx = value
+                            }
+                        }
                     }
-                } else if (delta > 0f && headerOffsetTargetPx != 0f) {
-                    animateHeaderReveal = true
-                    headerOffsetTargetPx = 0f
                 }
                 return Offset.Zero
             }
