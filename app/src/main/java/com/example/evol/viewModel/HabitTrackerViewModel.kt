@@ -21,6 +21,7 @@ import com.example.evol.utils.getCurrentDate
 import com.example.evol.utils.getNextNDate
 import com.example.evol.utils.getPreviousNDate
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.internal.toImmutableList
 import java.io.IOException
@@ -50,86 +51,112 @@ class HabitTrackerViewModel(application: Application) : AndroidViewModel(applica
     private var initialAPICallMade = mutableStateOf(false)
     private var apiData = mutableStateOf<HabitTrackerAPIGetResponse?>(null)
     val dataFetchIsLoading = mutableStateOf(false)
+    val pullToRefreshIsLoading = mutableStateOf(false)
 
     init {
         loadTrackersFromApi()
     }
+
+    private suspend fun runWithCardLoading(block: suspend () -> Unit) {
+        val startedAt = System.currentTimeMillis()
+        withContext(Dispatchers.Main) {
+            dataFetchIsLoading.value = true
+        }
+        try {
+            block()
+        } finally {
+            val elapsed = System.currentTimeMillis() - startedAt
+            val minimumVisibleMs = 300L
+            if (elapsed < minimumVisibleMs) {
+                delay(minimumVisibleMs - elapsed)
+            }
+            withContext(Dispatchers.Main) {
+                dataFetchIsLoading.value = false
+            }
+        }
+    }
     
 
-    private fun processAPIResponse() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val currentDatesData =  apiData.value!!.track[selectedDate.value]
-                configData.value = apiData.value!!.configurations
+    private suspend fun processAPIResponse() {
+        try {
+            val currentDatesData =  apiData.value!!.track[selectedDate.value]
+            configData.value = apiData.value!!.configurations
 
-                val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-                val sortedDates = apiData.value!!.track.keys.sortedWith(compareBy {
-                    LocalDate.parse(
-                        it,
-                        formatter
-                    )
-                })
-                val selectedDateIndex = sortedDates.indexOf(selectedDate.value)
-                val filteredTrackData =
-                    if (currentDatesData == null) apiData.value!!.track else sortedDates
-                        .take(selectedDateIndex + 1)
-                        .associateWith { date -> apiData.value!!.track[date] ?: emptyMap() }
+            val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+            val sortedDates = apiData.value!!.track.keys.sortedWith(compareBy {
+                LocalDate.parse(
+                    it,
+                    formatter
+                )
+            })
+            val selectedDateIndex = sortedDates.indexOf(selectedDate.value)
+            val filteredTrackData =
+                if (currentDatesData == null) apiData.value!!.track else sortedDates
+                    .take(selectedDateIndex + 1)
+                    .associateWith { date -> apiData.value!!.track[date] ?: emptyMap() }
 
-                if (currentDatesData != null) {
-                    getConsistentData(filteredTrackData, true)
-                    habitTrackerData.clear()
-                    //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
-                    trackerDAO.deleteAll()
-                    val convertedData =
-                        convertTrackerDataMapToList(currentDatesData).toMutableList()
-                    if (convertedData.size != apiData.value!!.configurations.keys.size) {
-                        apiData.value!!.configurations.keys.forEach { item ->
-                            if (currentDatesData[item] == null) {
-                                convertedData.add(HabitTracker(id = null, item = item, value = 0.0))
-                            }
+            if (currentDatesData != null) {
+                getConsistentData(filteredTrackData, true)
+                habitTrackerData.clear()
+                //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
+                trackerDAO.deleteAll()
+                val convertedData =
+                    convertTrackerDataMapToList(currentDatesData).toMutableList()
+                if (convertedData.size != apiData.value!!.configurations.keys.size) {
+                    apiData.value!!.configurations.keys.forEach { item ->
+                        if (currentDatesData[item] == null) {
+                            convertedData.add(HabitTracker(id = null, item = item, value = 0.0))
                         }
                     }
-                    trackerDAO.insertAll(convertedData)
-                    habitTrackerData.addAll(convertedData)
                 }
-                if (currentDatesData == null) {
-                    getConsistentData(filteredTrackData, false)
-                    habitTrackerData.clear()
-                    //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
-                    trackerDAO.deleteAll()
-                    val convertedData: MutableList<HabitTracker> = mutableListOf()
-                    apiData.value!!.configurations.keys.forEach { item ->
-                        convertedData.add(HabitTracker(id = null, item = item, value = 0.0))
-                    }
-                    trackerDAO.insertAll(convertedData)
-                    habitTrackerData.addAll(convertedData)
-                }
-            } catch (e: Exception) {
-                println("error----")
-                e.printStackTrace()
+                trackerDAO.insertAll(convertedData)
+                habitTrackerData.addAll(convertedData)
             }
-
+            if (currentDatesData == null) {
+                getConsistentData(filteredTrackData, false)
+                habitTrackerData.clear()
+                //TODO: get all specific dates data and update the same, deleting whole db and inserting again is not optimal and scalable
+                trackerDAO.deleteAll()
+                val convertedData: MutableList<HabitTracker> = mutableListOf()
+                apiData.value!!.configurations.keys.forEach { item ->
+                    convertedData.add(HabitTracker(id = null, item = item, value = 0.0))
+                }
+                trackerDAO.insertAll(convertedData)
+                habitTrackerData.addAll(convertedData)
+            }
+        } catch (e: Exception) {
+            println("error----")
+            e.printStackTrace()
         }
     }
 
     fun forceLoadDataOnPullToRefresh() {
         viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                pullToRefreshIsLoading.value = true
+            }
             try {
-                dataFetchIsLoading.value = true
-                apiData.value = ApiClient.getTrackerApiService.fetchTrackers()
-                dataFetchIsLoading.value = false
-                processAPIResponse()
-            } catch (e: IOException) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        getApplication(),
-                        "Network error. Please try again.",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                runWithCardLoading {
+                    try {
+                        apiData.value = ApiClient.getTrackerApiService.fetchTrackers()
+                        processAPIResponse()
+                    } catch (e: IOException) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                getApplication(),
+                                "Network error. Please try again.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } catch (e: Exception) {
+                        println("error----")
+                        e.printStackTrace()
+                    }
                 }
-            } catch (e: Exception) {
-                println("error----")
-                e.printStackTrace()
+            } finally {
+                withContext(Dispatchers.Main) {
+                    pullToRefreshIsLoading.value = false
+                }
             }
         }
     }
@@ -137,32 +164,36 @@ class HabitTrackerViewModel(application: Application) : AndroidViewModel(applica
     private fun loadTrackersFromApi() {
         if (!initialAPICallMade.value) {
             viewModelScope.launch(Dispatchers.IO) {
-                try {
-                    apiData.value = ApiClient.getTrackerApiService.fetchTrackers()
-                    processAPIResponse()
-                    initialAPICallMade.value = true
-                } catch (e: IOException) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(
-                            getApplication(),
-                            "Network error. Please try again.",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                runWithCardLoading {
+                    try {
+                        apiData.value = ApiClient.getTrackerApiService.fetchTrackers()
+                        processAPIResponse()
+                        initialAPICallMade.value = true
+                    } catch (e: IOException) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                getApplication(),
+                                "Network error. Please try again.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                getApplication(),
+                                "Network error. Please try again.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        e.printStackTrace()
                     }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(
-                            getApplication(),
-                            "Network error. Please try again.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                    e.printStackTrace()
                 }
             }
         } else {
             viewModelScope.launch(Dispatchers.IO) {
-                processAPIResponse()
+                runWithCardLoading {
+                    processAPIResponse()
+                }
             }
         }
     }

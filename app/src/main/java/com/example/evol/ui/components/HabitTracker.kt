@@ -3,6 +3,10 @@ package com.example.evol.ui.components
 import android.app.Application
 import android.content.Context
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -110,6 +114,16 @@ fun Tracker(context: Context) {
     val mutedText = colorScheme.onSurfaceVariant
     val titleText = colorScheme.onBackground
     val subtleSurface = colorScheme.surfaceVariant
+    val skeletonPulse = rememberInfiniteTransition(label = "tracker_skeleton_pulse")
+    val skeletonAlpha by skeletonPulse.animateFloat(
+        initialValue = 0.10f,
+        targetValue = 0.22f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "tracker_skeleton_alpha"
+    )
 
     fun debouncedSaveAPICall() {
         if (!habitTrackerViewModal.updateAPICallIsLoading.value) {
@@ -249,14 +263,14 @@ fun Tracker(context: Context) {
                     habitTrackerViewModal.forceLoadDataOnPullToRefresh()
                 }
             },
-            isRefreshing = habitTrackerViewModal.dataFetchIsLoading.value,
+            isRefreshing = habitTrackerViewModal.pullToRefreshIsLoading.value,
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(headerScrollBehavior),
             indicator = {
                 Indicator(
                     modifier = Modifier.align(Alignment.TopCenter),
-                    isRefreshing = habitTrackerViewModal.dataFetchIsLoading.value,
+                    isRefreshing = habitTrackerViewModal.pullToRefreshIsLoading.value,
                     containerColor = cardColor,
                     color = accentBlue,
                     state = pullToRefreshState
@@ -275,123 +289,132 @@ fun Tracker(context: Context) {
                     state = listState,
                     contentPadding = PaddingValues(top = headerHeightDp, bottom = 24.dp)
                 ) {
-                    itemsIndexed(
-                        items = habitTrackerViewModal.habitTrackerData,
-                        key = { _, data -> data.item }
-                    ) { index, data ->
-                        val consistencyData = habitTrackerViewModal.consistentData[data.item]
-                        val streakCount = consistencyData?.consistentSince ?: 0
-                        val longestPositiveStreak = consistencyData?.longestConsistentSince ?: 0
-                        val longestNegativeStreak = consistencyData?.longestBrokenSince ?: 0
-                        val goal = habitTrackerViewModal.getMaxThreshold(data.item)
-                        val isZeroGoal = goal == 0
-                        val progress = if (goal != null && goal > 0) {
-                            (data.value / goal.toDouble()).toFloat().coerceIn(0f, 1f)
-                        } else {
-                            null
+                    if (habitTrackerViewModal.dataFetchIsLoading.value && !habitTrackerViewModal.pullToRefreshIsLoading.value) {
+                        items(5) {
+                            TrackerCardSkeleton(
+                                cardColor = cardColor,
+                                skeletonColor = colorScheme.onSurface.copy(alpha = skeletonAlpha)
+                            )
                         }
-                        val showGoalZeroAlert = isZeroGoal && data.value > 0.0
-                        val isComplete = if (isZeroGoal) {
-                            data.value == 0.0
-                        } else {
-                            progress != null && progress >= 1f
-                        }
-                        val isEmpty = data.value <= 0.0
-                        val valueText = if (data.value % 1.0 == 0.0) {
-                            data.value.toInt().toString()
-                        } else {
-                            String.format(Locale.getDefault(), "%.1f", data.value)
-                        }
-                        val goalText = goal?.toString() ?: "--"
+                    } else {
+                        itemsIndexed(
+                            items = habitTrackerViewModal.habitTrackerData,
+                            key = { _, data -> data.item }
+                        ) { index, data ->
+                            val consistencyData = habitTrackerViewModal.consistentData[data.item]
+                            val streakCount = consistencyData?.consistentSince ?: 0
+                            val longestPositiveStreak = consistencyData?.longestConsistentSince ?: 0
+                            val longestNegativeStreak = consistencyData?.longestBrokenSince ?: 0
+                            val goal = habitTrackerViewModal.getMaxThreshold(data.item)
+                            val isZeroGoal = goal == 0
+                            val progress = if (goal != null && goal > 0) {
+                                (data.value / goal.toDouble()).toFloat().coerceIn(0f, 1f)
+                            } else {
+                                null
+                            }
+                            val showGoalZeroAlert = isZeroGoal && data.value > 0.0
+                            val isComplete = if (isZeroGoal) {
+                                data.value == 0.0
+                            } else {
+                                progress != null && progress >= 1f
+                            }
+                            val isEmpty = data.value <= 0.0
+                            val valueText = if (data.value % 1.0 == 0.0) {
+                                data.value.toInt().toString()
+                            } else {
+                                String.format(Locale.getDefault(), "%.1f", data.value)
+                            }
+                            val goalText = goal?.toString() ?: "--"
 
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                                .combinedClickable(
-                                    onClick = {
-                                        habitTrackerViewModal.incrementValue(index, data.item)
-                                        lastButtonClicked = true
-                                    },
-                                    onLongClick = {
-                                        if (data.value > 0) {
-                                            habitTrackerViewModal.decrementValueOnLongPress(
-                                                index,
-                                                data.item
-                                            )
-                                            lastButtonClicked = true
-                                        }
-                                    }
-                                ),
-                            shape = RoundedCornerShape(28.dp),
-                            colors = CardDefaults.cardColors(containerColor = cardColor),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Row(
+                            Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .padding(vertical = 8.dp)
+                                    .combinedClickable(
+                                        onClick = {
+                                            habitTrackerViewModal.incrementValue(index, data.item)
+                                            lastButtonClicked = true
+                                        },
+                                        onLongClick = {
+                                            if (data.value > 0) {
+                                                habitTrackerViewModal.decrementValueOnLongPress(
+                                                    index,
+                                                    data.item
+                                                )
+                                                lastButtonClicked = true
+                                            }
+                                        }
+                                    ),
+                                shape = RoundedCornerShape(28.dp),
+                                colors = CardDefaults.cardColors(containerColor = cardColor),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
-                                ProgressBadge(
-                                    progress = progress,
-                                    isComplete = isComplete,
-                                    isEmpty = isEmpty,
-                                    showAlert = showGoalZeroAlert,
-                                    accentBlue = accentBlue,
-                                    mutedText = mutedText,
-                                    subtleSurface = subtleSurface
-                                )
-
-                                Column(
+                                Row(
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .padding(start = 12.dp)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = data.item,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = titleText
+                                    ProgressBadge(
+                                        progress = progress,
+                                        isComplete = isComplete,
+                                        isEmpty = isEmpty,
+                                        showAlert = showGoalZeroAlert,
+                                        accentBlue = accentBlue,
+                                        mutedText = mutedText,
+                                        subtleSurface = subtleSurface
                                     )
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(top = 4.dp)
+
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(start = 12.dp)
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Whatshot,
-                                            contentDescription = null,
-                                            tint = Color(0xFFF4B64E),
-                                            modifier = Modifier.size(16.dp)
-                                        )
                                         Text(
-                                            text = " ${streakCount} day streak",
-                                            fontSize = 13.sp,
-                                            color = Color(0xFFF4B64E)
+                                            text = data.item,
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = titleText
+                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(top = 4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Whatshot,
+                                                contentDescription = null,
+                                                tint = Color(0xFFF4B64E),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Text(
+                                                text = " ${streakCount} day streak",
+                                                fontSize = 13.sp,
+                                                color = Color(0xFFF4B64E)
+                                            )
+                                        }
+                                        Text(
+                                            text = "Best +$longestPositiveStreak / -$longestNegativeStreak",
+                                            fontSize = 12.sp,
+                                            color = mutedText,
+                                            modifier = Modifier.padding(top = 2.dp)
                                         )
                                     }
-                                    Text(
-                                        text = "Best +$longestPositiveStreak / -$longestNegativeStreak",
-                                        fontSize = 12.sp,
-                                        color = mutedText,
-                                        modifier = Modifier.padding(top = 2.dp)
-                                    )
-                                }
 
-                                Column(
-                                    horizontalAlignment = Alignment.End
-                                ) {
-                                    Text(
-                                        text = "Goal: $goalText",
-                                        fontSize = 13.sp,
-                                        color = mutedText
-                                    )
-                                    Text(
-                                        text = valueText,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = titleText
-                                    )
+                                    Column(
+                                        horizontalAlignment = Alignment.End
+                                    ) {
+                                        Text(
+                                            text = "Goal: $goalText",
+                                            fontSize = 13.sp,
+                                            color = mutedText
+                                        )
+                                        Text(
+                                            text = valueText,
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = titleText
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -570,6 +593,91 @@ fun Tracker(context: Context) {
                 }
             ) {
                 DatePicker(state = datePickerState)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackerCardSkeleton(
+    cardColor: Color,
+    skeletonColor: Color
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = cardColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(skeletonColor)
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(150.dp)
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(skeletonColor)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .width(118.dp)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(skeletonColor)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .width(168.dp)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(skeletonColor)
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.End
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(64.dp)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(skeletonColor)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .width(28.dp)
+                        .height(20.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(skeletonColor)
+                )
             }
         }
     }
