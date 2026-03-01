@@ -89,11 +89,13 @@ fun Tracker(context: Context) {
     val pullToRefreshState = rememberPullToRefreshState()
     val coroutineScope = rememberCoroutineScope()
 
-    val backgroundColor = Color(0xFFF6F8FC)
-    val cardColor = Color.White
-    val accentBlue = Color(0xFF2D6BFF)
-    val mutedText = Color(0xFF8D9AAE)
-    val titleText = Color(0xFF1E2A3B)
+    val colorScheme = MaterialTheme.colorScheme
+    val backgroundColor = colorScheme.background
+    val cardColor = colorScheme.surface
+    val accentBlue = colorScheme.primary
+    val mutedText = colorScheme.onSurfaceVariant
+    val titleText = colorScheme.onBackground
+    val subtleSurface = colorScheme.surfaceVariant
 
     fun debouncedSaveAPICall() {
         if (!habitTrackerViewModal.updateAPICallIsLoading.value) {
@@ -197,7 +199,7 @@ fun Tracker(context: Context) {
                 Indicator(
                     modifier = Modifier.align(Alignment.TopCenter),
                     isRefreshing = habitTrackerViewModal.dataFetchIsLoading.value,
-                    containerColor = Color.White,
+                    containerColor = cardColor,
                     color = accentBlue,
                     state = pullToRefreshState
                 )
@@ -233,10 +235,39 @@ fun Tracker(context: Context) {
                         color = titleText
                     )
                     Spacer(modifier = Modifier.weight(1f))
+                    ElevatedButton(
+                        onClick = { habitTrackerViewModal.updateTrackerDataAPI() },
+                        enabled = !habitTrackerViewModal.updateAPICallIsLoading.value,
+                        modifier = Modifier
+                            .padding(end = 10.dp)
+                            .height(40.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = ButtonDefaults.elevatedButtonColors(
+                            containerColor = accentBlue,
+                            contentColor = colorScheme.onPrimary
+                        ),
+                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 2.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp)
+                    ) {
+                        if (habitTrackerViewModal.updateAPICallIsLoading.value) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = colorScheme.onPrimary,
+                                strokeWidth = 2.dp,
+                                trackColor = colorScheme.onPrimary.copy(alpha = 0.3f)
+                            )
+                        } else {
+                            Text(
+                                text = "SAVE",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                     Surface(
                         modifier = Modifier.size(48.dp),
                         shape = CircleShape,
-                        color = Color.White,
+                        color = cardColor,
                         shadowElevation = 6.dp
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -298,6 +329,7 @@ fun Tracker(context: Context) {
                             isSelected = isSelected,
                             accentBlue = accentBlue,
                             mutedText = mutedText,
+                            titleText = titleText,
                             isEnabled = !date.isAfter(todayDate),
                             onClick = {
                                 if (!date.isAfter(todayDate)) {
@@ -369,7 +401,8 @@ fun Tracker(context: Context) {
                                     isComplete = isComplete,
                                     isEmpty = isEmpty,
                                     accentBlue = accentBlue,
-                                    mutedText = mutedText
+                                    mutedText = mutedText,
+                                    subtleSurface = subtleSurface
                                 )
 
                                 Column(
@@ -427,38 +460,7 @@ fun Tracker(context: Context) {
                     }
                 }
 
-                ElevatedButton(
-                    onClick = {
-                        if (!habitTrackerViewModal.updateAPICallIsLoading.value) {
-                            habitTrackerViewModal.updateTrackerDataAPI()
-                        }
-                    },
-                    modifier = Modifier
-                        .padding(horizontal = 24.dp, vertical = 24.dp)
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(40.dp),
-                    colors = ButtonDefaults.elevatedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = accentBlue
-                    ),
-                    elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 2.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Add Routine",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(60.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
 
@@ -506,6 +508,7 @@ private fun WeekDayItem(
     isSelected: Boolean,
     accentBlue: Color,
     mutedText: Color,
+    titleText: Color,
     isEnabled: Boolean,
     onClick: () -> Unit
 ) {
@@ -541,7 +544,7 @@ private fun WeekDayItem(
             Text(
                 text = date.toString(),
                 fontSize = 14.sp,
-                color = Color(0xFF1E2A3B),
+                color = titleText,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.width(36.dp)
@@ -556,7 +559,8 @@ private fun ProgressBadge(
     isComplete: Boolean,
     isEmpty: Boolean,
     accentBlue: Color,
-    mutedText: Color
+    mutedText: Color,
+    subtleSurface: Color
 ) {
     Box(
         modifier = Modifier.size(56.dp),
@@ -583,7 +587,7 @@ private fun ProgressBadge(
                 Surface(
                     modifier = Modifier.size(48.dp),
                     shape = CircleShape,
-                    color = Color(0xFFF0F2F6)
+                    color = subtleSurface
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -602,7 +606,7 @@ private fun ProgressBadge(
                         modifier = Modifier.size(48.dp),
                         color = accentBlue,
                         strokeWidth = 4.dp,
-                        trackColor = Color(0xFFE7ECF4)
+                        trackColor = subtleSurface
                     )
                     Text(
                         text = "${(progress * 100).roundToInt()}%",
@@ -616,7 +620,7 @@ private fun ProgressBadge(
                 Surface(
                     modifier = Modifier.size(48.dp),
                     shape = CircleShape,
-                    color = Color(0xFFF0F2F6)
+                    color = subtleSurface
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(

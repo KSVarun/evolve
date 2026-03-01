@@ -62,6 +62,7 @@ dependencies {
 
     implementation("androidx.work:work-runtime-ktx:2.8.1")
     implementation(libs.androidx.compose.runtime.runtime.livedata)
+    implementation("androidx.appcompat:appcompat:1.7.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
