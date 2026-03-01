@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.evol.entity.Consistency
 import com.example.evol.ui.reusable.LongPressElement
 import com.example.evol.utils.hashCodeToColor
 import com.example.evol.utils.isSelectedDateLessThanCurrentData
@@ -92,30 +91,6 @@ fun Food(context: Context) {
             foodTrackerViewModal.updateTrackerDataAPI()
             shouldCallLastAction = false
         }
-    }
-
-    //streak data, how long a task is done consistently and how long it's not done consistently
-    fun renderConsistentData(data: Consistency?): MutableList<String> {
-        val returnData = mutableListOf<String>()
-        if (data == null) {
-            returnData.add(0, "0")
-            returnData.add(1, "0")
-            return returnData
-        }
-        if (data.consistentSince == 1 && data.brokenSince == 1) {
-            returnData.add(0, "1")
-            returnData.add(1, "1")
-        } else if (data.consistentSince > 1 && data.brokenSince == 1) {
-            returnData.add(0, "0")
-            returnData.add(1, data.consistentSince.toString())
-        } else if (data.brokenSince > 1 && data.consistentSince == 1) {
-            returnData.add(0, data.brokenSince.toString())
-            returnData.add(1, "0")
-        } else if (data.brokenSince == 0 || data.consistentSince == 0) {
-            returnData.add(0, data.brokenSince.toString())
-            returnData.add(1, data.consistentSince.toString())
-        }
-        return returnData
     }
 
     Box(
@@ -224,8 +199,11 @@ fun Food(context: Context) {
 
                 foodTrackerViewModal.foodTrackerData.forEachIndexed { index, data ->
                     val isLastItem = index == foodTrackerViewModal.foodTrackerData.lastIndex
-                    val consistentData =
-                        renderConsistentData(foodTrackerViewModal.consistentData[data.item])
+                    val consistencyData = foodTrackerViewModal.consistentData[data.item]
+                    val negativeStreak = consistencyData?.brokenSince ?: 0
+                    val positiveStreak = consistencyData?.consistentSince ?: 0
+                    val longestPositiveStreak = consistencyData?.longestConsistentSince ?: 0
+                    val longestNegativeStreak = consistencyData?.longestBrokenSince ?: 0
                     val backgroundColor = if (data.value > 0) {
                         hashCodeToColor("#4999e9".toColorInt())
                     } else {
@@ -262,8 +240,8 @@ fun Food(context: Context) {
 
                         ) {
                             Text(
-                                text = consistentData[0],
-                                color = if (consistentData[0].toInt() > 0) {
+                                text = negativeStreak.toString(),
+                                color = if (negativeStreak > 0) {
                                     Color.Red
                                 } else {
                                     Color.Transparent
@@ -285,6 +263,12 @@ fun Food(context: Context) {
                             Text(
                                 text = data.value.toString()
                             )
+                            Text(
+                                text = "Best +$longestPositiveStreak / -$longestNegativeStreak",
+                                color = Color.LightGray,
+                                fontSize = 11.sp,
+                                maxLines = 1
+                            )
                         }
                         Box(
                             modifier = Modifier
@@ -293,8 +277,8 @@ fun Food(context: Context) {
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = consistentData[1],
-                                color = if (consistentData[1].toInt() > 0) {
+                                text = positiveStreak.toString(),
+                                color = if (positiveStreak > 0) {
                                     Color.Green
                                 } else {
                                     Color.Transparent

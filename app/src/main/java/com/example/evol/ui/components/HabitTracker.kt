@@ -63,7 +63,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.evol.entity.Consistency
 import com.example.evol.utils.isSelectedDateLessThanCurrentData
 import com.example.evol.viewModel.HabitTrackerViewModel
 import com.example.evol.viewModelFactory.HabitTrackerViewModelFactory
@@ -119,30 +118,6 @@ fun Tracker(context: Context) {
             habitTrackerViewModal.updateTrackerDataAPI()
             shouldCallLastAction = false
         }
-    }
-
-    //streak data, how long a task is done consistently and how long it's not done consistently
-    fun renderConsistentData(data: Consistency?): MutableList<String> {
-        val returnData = mutableListOf<String>()
-        if (data == null) {
-            returnData.add(0, "0")
-            returnData.add(1, "0")
-            return returnData
-        }
-        if (data.consistentSince == 1 && data.brokenSince == 1) {
-            returnData.add(0, "1")
-            returnData.add(1, "1")
-        } else if (data.consistentSince > 1 && data.brokenSince == 1) {
-            returnData.add(0, "0")
-            returnData.add(1, data.consistentSince.toString())
-        } else if (data.brokenSince > 1 && data.consistentSince == 1) {
-            returnData.add(0, data.brokenSince.toString())
-            returnData.add(1, "0")
-        } else if (data.brokenSince == 0 || data.consistentSince == 0) {
-            returnData.add(0, data.brokenSince.toString())
-            returnData.add(1, data.consistentSince.toString())
-        }
-        return returnData
     }
 
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
@@ -341,9 +316,10 @@ fun Tracker(context: Context) {
                         .padding(horizontal = 16.dp)
                 ) {
                     habitTrackerViewModal.habitTrackerData.forEachIndexed { index, data ->
-                        val consistentData =
-                            renderConsistentData(habitTrackerViewModal.consistentData[data.item])
-                        val streakCount = consistentData[1].toIntOrNull() ?: 0
+                        val consistencyData = habitTrackerViewModal.consistentData[data.item]
+                        val streakCount = consistencyData?.consistentSince ?: 0
+                        val longestPositiveStreak = consistencyData?.longestConsistentSince ?: 0
+                        val longestNegativeStreak = consistencyData?.longestBrokenSince ?: 0
                         val goal = habitTrackerViewModal.getMaxThreshold(data.item)
                         val progress = if (goal != null && goal > 0) {
                             (data.value / goal.toDouble()).toFloat().coerceIn(0f, 1f)
@@ -363,7 +339,6 @@ fun Tracker(context: Context) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 8.dp)
-                                .alpha(if (isEmpty && streakCount == 0) 0.55f else 1f)
                                 .combinedClickable(
                                     onClick = {
                                         habitTrackerViewModal.incrementValue(index, data.item)
@@ -424,6 +399,12 @@ fun Tracker(context: Context) {
                                             color = Color(0xFFF4B64E)
                                         )
                                     }
+                                    Text(
+                                        text = "Best +$longestPositiveStreak / -$longestNegativeStreak",
+                                        fontSize = 12.sp,
+                                        color = mutedText,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
                                 }
 
                                 Column(

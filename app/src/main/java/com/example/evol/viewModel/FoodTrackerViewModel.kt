@@ -12,9 +12,11 @@ import androidx.room.Room
 import com.example.evol.data.FoodTrackerAPIGetResponse
 import com.example.evol.entity.Consistency
 import com.example.evol.entity.FoodTracker
+import com.example.evol.entity.MaxThresholdValue
 import com.example.evol.entity.ThresholdIncrement
 import com.example.evol.service.ApiClient
 import com.example.evol.service.UpdateTrackerRequestBody
+import com.example.evol.utils.calculateConsistencyData
 import com.example.evol.utils.getCurrentDate
 import com.example.evol.utils.getNextNDate
 import com.example.evol.utils.getPreviousNDate
@@ -163,70 +165,18 @@ class FoodTrackerViewModel(application: Application) : AndroidViewModel(applicat
         trackData: Map<String, Map<String, String>>,
         currentDaysData: Boolean
     ) {
-        var data = mutableListOf<Map<String, String>>()
+        val itemGoals = configData.value?.mapValues { (_, config) ->
+            config[MaxThresholdValue]?.toIntOrNull()
+        } ?: emptyMap()
 
-        trackData.forEach { (_, u) ->
-            data.add(u)
-
-        }
-        data = data.reversed().toMutableList()
-        if (currentDaysData) {
-            data.removeAt(0)
-        }
-
-
-        data.forEach { u ->
-            u.forEach label@{ (t, u) ->
-                var currentData = consistentData[t]
-                if (currentData == null) {
-                    currentData = Consistency(consistentSince = 0, brokenSince = 0)
-                }
-                if (u.isNotEmpty() && u.toDouble() > 0) {
-                    if (currentData.brokenSince == 0) {
-                        if (currentData.consistentSince == 0) {
-                            consistentData[t] = Consistency(
-                                consistentSince = 1,
-                                brokenSince = 0
-                            )
-                        }
-                        if (currentData.consistentSince > 0) {
-                            consistentData[t] = Consistency(
-                                consistentSince = currentData.consistentSince + 1,
-                                brokenSince = 0
-                            )
-                        }
-                    } else if (currentData.brokenSince == 1 && currentData.consistentSince > 0) {
-                        return@label
-                    } else {
-                        consistentData[t] = Consistency(
-                            consistentSince = 1,
-                            brokenSince = currentData.brokenSince
-                        )
-                    }
-                } else if (u.isNotEmpty() && u.toDouble() == 0.0) {
-                    if (currentData.consistentSince == 0) {
-                        if (currentData.brokenSince == 0) {
-                            consistentData[t] = Consistency(
-                                consistentSince = 0,
-                                brokenSince = 1
-                            )
-                        } else if (currentData.brokenSince > 0) {
-                            consistentData[t] = Consistency(
-                                consistentSince = 0,
-                                brokenSince = currentData.brokenSince + 1
-                            )
-                        }
-                    } else if (currentData.consistentSince == 1 && currentData.brokenSince > 0) {
-                        return@label
-                    } else {
-                        consistentData[t] = Consistency(
-                            consistentSince = currentData.consistentSince,
-                            brokenSince = 1
-                        )
-                    }
-                }
-            }
-        }
+        consistentData.clear()
+        consistentData.putAll(
+            calculateConsistencyData(
+                trackData = trackData,
+                skipLatestDate = currentDaysData,
+                itemGoals = itemGoals
+            )
+        )
     }
 
 
@@ -350,7 +300,5 @@ class FoodTrackerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 }
-
-
 
 
