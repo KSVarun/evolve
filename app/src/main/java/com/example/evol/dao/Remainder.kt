@@ -23,6 +23,12 @@ interface RemainderDAO {
     @Query("SELECT * FROM remainders")
     fun getAll(): LiveData<List<Remainder>>
 
+    @Query("SELECT * FROM remainders")
+    suspend fun getAllOnce(): List<Remainder>
+
+    @Query("SELECT * FROM remainders WHERE id = :id LIMIT 1")
+    suspend fun getById(id: UUID): Remainder?
+
     @Query("DELETE FROM remainders")
     suspend fun deleteAll()
 
